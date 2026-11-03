@@ -1,1 +1,184 @@
- <h1>N3 Connect</h1>
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<title>สมุดโทร N3 Connect</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --p:#5C1668; --p2:#7A288A; --g:#F4B41A; --ink:#2B0A33; --mut:#7d6f82; --bg:#F6F1F8; --card:#fff; --line:#eadff0; --soft:#F3EAF6; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Anuphan', system-ui, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--p); color: #fff; padding: 12px 14px 10px; box-shadow: 0 2px 8px rgba(60,10,70,.25); }
+  .top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  h1 { margin: 0; font-size: 18px; font-weight: 700; }
+  .sub { font-size: 12px; color: #f2dff6; }
+  .search { margin-top: 10px; position: relative; }
+  .search input { width: 100%; border: 0; border-radius: 12px; padding: 12px 40px 12px 14px; font: inherit; font-size: 16px; color: var(--ink); outline: none; }
+  .search button { position: absolute; right: 6px; top: 6px; border: 0; background: var(--soft); color: var(--p); width: 32px; height: 32px; border-radius: 10px; font-size: 16px; display: none; }
+  .chips { display: flex; gap: 6px; overflow-x: auto; padding: 10px 0 2px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: 0 0 auto; border: 1px solid rgba(255,255,255,.35); background: transparent; color: #fff; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; }
+  .chip.on { background: var(--g); border-color: var(--g); color: var(--ink); font-weight: 600; }
+  select { margin-top: 8px; width: 100%; border: 0; border-radius: 10px; padding: 9px 10px; font: inherit; font-size: 14px; color: var(--ink); background: #fff; }
+  main { padding: 10px 12px 40px; max-width: 720px; margin: 0 auto; }
+  .count { font-size: 12px; color: var(--mut); margin: 4px 2px 8px; }
+  .card { display: flex; gap: 12px; align-items: center; background: var(--card); border-radius: 14px; padding: 12px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(90,30,100,.08); }
+  .av { flex: 0 0 46px; height: 46px; border-radius: 50%; background: var(--soft); color: var(--p); display: grid; place-items: center; font-weight: 700; font-size: 18px; border: 2px solid var(--g); }
+  .av.v { border-color: var(--line); color: var(--mut); }
+  .info { flex: 1; min-width: 0; }
+  .nm { font-weight: 700; font-size: 15px; line-height: 1.3; }
+  .nm small { font-weight: 400; color: var(--mut); font-size: 12px; }
+  .pos { display: inline-block; margin-top: 3px; background: var(--g); color: var(--ink); border-radius: 6px; padding: 1px 7px; font-size: 12px; font-weight: 600; }
+  .pos.hp { background: var(--soft); color: var(--p); }
+  .unit { font-size: 13px; color: var(--p2); margin-top: 3px; line-height: 1.35; }
+  .tel { font-size: 12px; color: var(--mut); margin-top: 3px; }
+  .acts { display: flex; flex-direction: column; gap: 6px; }
+  .call { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: var(--p); color: #fff; text-decoration: none; font-size: 18px; }
+  .call.sat { background: var(--soft); color: var(--p); font-size: 15px; }
+  .more { display: block; width: 100%; margin: 6px 0; border: 1px solid var(--line); background: #fff; color: var(--p); border-radius: 12px; padding: 12px; font: inherit; font-weight: 600; }
+  .state { text-align: center; padding: 48px 20px; color: var(--mut); }
+  .state h2 { color: var(--ink); font-size: 17px; margin: 10px 0 6px; }
+  .state .big { font-size: 40px; }
+  .btn { display: inline-block; margin-top: 16px; background: var(--p); color: #fff; text-decoration: none; border: 0; border-radius: 12px; padding: 12px 20px; font: inherit; font-weight: 600; }
+  .spin { width: 34px; height: 34px; border: 4px solid var(--line); border-top-color: var(--p); border-radius: 50%; margin: 0 auto; animation: r 0.9s linear infinite; }
+  @keyframes r { to { transform: rotate(360deg); } }
+  .foot { text-align: center; font-size: 11px; color: var(--mut); margin-top: 16px; }
+</style>
+</head>
+<body>
+<header id="hdr" hidden>
+  <div class="top"><h1>📞 สมุดโทร N3 Connect</h1><span class="sub" id="asof"></span></div>
+  <div class="search"><input id="q" type="text" inputmode="search" autocomplete="off" placeholder="ค้นชื่อ ชื่อเล่น ตำแหน่ง หน่วย หรือเบอร์"><button id="clr" aria-label="ล้าง">✕</button></div>
+  <div class="chips" id="chips"></div>
+  <select id="grp" aria-label="เลือกหน่วยงาน"></select>
+</header>
+<main id="main"><div class="state"><div class="spin"></div><p>กำลังเปิดสมุดโทร…</p></div></main>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js" charset="utf-8"></script>
+<script>
+'use strict';
+// ค่าเหล่านี้ไม่ใช่ความลับ (LIFF ID / URL บอท) — ถ้าไม่มี ID token ที่ผ่านการตรวจ บอทจะไม่ส่งข้อมูลให้
+const LIFF_ID = '2012356608-WZdvLgcd';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzRRsudr5IUzUZR3942N00S2v_n3wlTqi0zXl_LnZrbC9_YmcOr9s0Db_XTfaCJ5kfO/exec';
+const PAGE = 60;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const norm = s => String(s || '').toLowerCase().replace(/[\s.\-()]/g, '').replace(/ฯ/g, '');
+const digits = s => String(s || '').replace(/\D/g, '');
+
+const CHIPS = [
+  ['all', 'ทั้งหมด'], ['exec', 'ผู้บริหารเขต'], ['mgr', 'ผจก.'], ['hp', 'หผ.'], ['kfs', 'กฟส.'], ['kfj', 'กฟจ.']
+];
+let PEOPLE = [], chip = 'all', group = '', shown = PAGE;
+
+function state(icon, title, msg, btnHtml) {
+  $('hdr').hidden = true;
+  $('main').innerHTML = '<div class="state"><div class="big">' + icon + '</div><h2>' + esc(title) + '</h2><p>' + esc(msg) + '</p>' + (btnHtml || '') + '</div>';
+}
+
+async function start() {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+    const idToken = liff.getIDToken();
+    if (!idToken) { state('🔒', 'เข้าสู่ระบบไม่สำเร็จ', 'ลองปิดหน้านี้แล้วเปิดใหม่จากเมนู N3 Connect'); return; }
+    const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'liffPhonebook', idToken: idToken }) });
+    const d = await r.json();
+    if (!d.ok) return denied(d);
+    PEOPLE = (d.people || []).map(prep);
+    $('asof').textContent = d.at ? 'ข้อมูล ' + d.at : '';
+    setup();
+  } catch (e) {
+    state('⚠️', 'เปิดสมุดโทรไม่สำเร็จ', 'ตรวจสอบอินเทอร์เน็ต แล้วลองใหม่อีกครั้ง', '<button class="btn" onclick="location.reload()">ลองใหม่</button>');
+  }
+}
+
+function denied(d) {
+  if (d.error === 'not_friend') {
+    const add = d.oa ? '<a class="btn" href="' + esc(d.oa) + '">➕ เพิ่มเพื่อน N3 Connect</a>' : '';
+    state('🔒', 'ใช้ได้เฉพาะเพื่อนของ N3 Connect', 'เพิ่มเพื่อน LINE "N3 Connect" (และลงทะเบียนถ้าระบบขอ) แล้วเปิดหน้านี้ใหม่อีกครั้ง', add);
+  } else if (d.error === 'bad_token' || d.error === 'no_token') {
+    state('🔒', 'การเข้าสู่ระบบหมดอายุ', 'กดลองใหม่เพื่อเข้าสู่ระบบอีกครั้ง', '<button class="btn" onclick="liff.logout();location.reload()">ลองใหม่</button>');
+  } else {
+    state('⚠️', 'ระบบไม่พร้อมใช้งานชั่วคราว', 'ลองใหม่อีกครั้งในอีกสักครู่', '<button class="btn" onclick="location.reload()">ลองใหม่</button>');
+  }
+}
+
+function prep(p) {
+  const full = [p.name, p.surname].filter(Boolean).join(' ');
+  p._full = full;
+  p._key = norm([full, p.nickname, p.pos, p.posFull, p.unit, p.group, p.sec].join(' '));
+  p._tel = digits(p.mobile) + ' ' + digits(p.sat) + ' ' + digits(p.ext);
+  const pos = String(p.pos || '');
+  p._mgr = /^(ผจก|รจก|ชจก)/.test(pos);
+  p._hp = p.k === 'h';
+  p._exec = p.k === 'c' && /สำนักงานเขต/.test(p.group || '');
+  p._kfs = /^กฟส\./.test(p.unit || '');
+  p._kfj = /^กฟจ\./.test(p.unit || '') || /^กฟจ\./.test(p.group || '');
+  return p;
+}
+
+function setup() {
+  $('hdr').hidden = false;
+  $('chips').innerHTML = CHIPS.map(([k, l]) => '<button class="chip' + (k === chip ? ' on' : '') + '" data-k="' + k + '">' + l + '</button>').join('');
+  $('chips').onclick = e => { const b = e.target.closest('.chip'); if (!b) return; chip = b.dataset.k; shown = PAGE;
+    [...$('chips').children].forEach(x => x.classList.toggle('on', x.dataset.k === chip)); render(); };
+  const groups = [...new Set(PEOPLE.map(p => p.group).filter(Boolean))];
+  $('grp').innerHTML = '<option value="">ทุกหน่วยงาน</option>' + groups.map(g => '<option>' + esc(g) + '</option>').join('');
+  $('grp').onchange = () => { group = $('grp').value; shown = PAGE; render(); };
+  let t; $('q').oninput = () => { $('clr').style.display = $('q').value ? 'block' : 'none'; clearTimeout(t); t = setTimeout(() => { shown = PAGE; render(); }, 150); };
+  $('clr').onclick = () => { $('q').value = ''; $('clr').style.display = 'none'; shown = PAGE; render(); $('q').focus(); };
+  render();
+}
+
+function match(p, toks, dq) {
+  if (chip === 'exec' && !p._exec) return false;
+  if (chip === 'mgr' && !p._mgr) return false;
+  if (chip === 'hp' && !p._hp) return false;
+  if (chip === 'kfs' && !p._kfs) return false;
+  if (chip === 'kfj' && !p._kfj) return false;
+  if (group && p.group !== group) return false;
+  if (dq) return p._tel.indexOf(dq) >= 0;
+  return toks.every(t => p._key.indexOf(t) >= 0);
+}
+
+function render() {
+  const raw = $('q').value.trim();
+  const dq = digits(raw).length >= 4 && digits(raw).length >= raw.replace(/\s/g, '').length - 3 ? digits(raw) : '';
+  const toks = raw.split(/\s+/).map(norm).filter(Boolean);
+  const list = PEOPLE.filter(p => match(p, toks, dq));
+  const html = list.slice(0, shown).map(card).join('');
+  $('main').innerHTML = '<div class="count">พบ ' + list.length.toLocaleString('th-TH') + ' รายการ</div>' +
+    (html || '<div class="state"><div class="big">🔍</div><h2>ไม่พบรายชื่อ</h2><p>ลองพิมพ์ชื่อเล่น นามสกุล ตำแหน่ง หรือชื่อหน่วย</p></div>') +
+    (list.length > shown ? '<button class="more" id="more">แสดงเพิ่ม (' + (list.length - shown) + ')</button>' : '') +
+    '<div class="foot">N3 Connect · ข้อมูลชุดเดียวกับที่ค้นในแชต</div>';
+  const m = $('more'); if (m) m.onclick = () => { shown += PAGE; render(); };
+}
+
+function card(p) {
+  const vac = !p.name;
+  const ini = vac ? '–' : esc(String(p.name).charAt(0) + (p.surname ? String(p.surname).charAt(0) : ''));
+  const tel = digits(p.mobile);
+  const nm = vac ? '<span style="color:var(--mut)">(ตำแหน่งว่าง)</span>'
+    : esc(p._full) + (p.nickname ? ' <small>(' + esc(p.nickname) + ')</small>' : '');
+  const pos = esc((p.st === 'รักษาการ' ? 'รักษาการ ' : '') + (p.pos || '')) + (p.sec ? ' ' + esc(p.sec) : '');
+  const tels = [p.mobile ? '📱 ' + esc(p.mobile) : '', p.sat ? '📡 ' + esc(p.sat) : '', p.ext ? '☎️ ' + esc(p.ext) : ''].filter(Boolean).join('  ');
+  return '<div class="card"><div class="av' + (vac ? ' v' : '') + '">' + ini + '</div><div class="info">' +
+    '<div class="nm">' + nm + '</div>' +
+    (pos ? '<span class="pos' + (p._hp ? ' hp' : '') + '">' + pos + '</span>' : '') +
+    '<div class="unit">' + esc(p.unit || '') + '</div>' +
+    (tels ? '<div class="tel">' + tels + '</div>' : '') +
+    '</div><div class="acts">' +
+    (tel.length >= 9 ? '<a class="call" href="tel:' + tel + '" aria-label="โทรมือถือ">📞</a>' : '') +
+    '</div></div>';
+}
+
+start();
+</script>
+</body>
+</html>
