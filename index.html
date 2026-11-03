@@ -74,6 +74,15 @@ const CHIPS = [
   ['all', 'ทั้งหมด'], ['exec', 'ผู้บริหารเขต'], ['mgr', 'ผจก.'], ['hp', 'หผ.'], ['kfs', 'กฟส.'], ['kfj', 'กฟจ.']
 ];
 let PEOPLE = [], chip = 'all', group = '', shown = PAGE;
+// ลำดับตำแหน่ง (บนลงล่าง) · ตำแหน่งเดียวกันเรียงระดับ (เลขในวงเล็บ) มาก→น้อย · ที่เหลือคงลำดับเดิมในชีต
+const RANKS = ['ผชก', 'อฝ', 'รฝ', 'อก', 'รก', 'ชก', 'ผจก', 'รจก', 'ชจก', 'หผ', 'ชผ'];
+function rankOf(pos) {
+  const x = String(pos || '').replace(/\s/g, '');
+  let i = RANKS.findIndex(r => x.indexOf(r) === 0);
+  if (i < 0) i = RANKS.length;
+  const lv = (x.split(/รษ\./)[0].match(/\((\d+)\)/g) || []).map(m => +m.replace(/\D/g, ''));
+  return i * 100 - (lv.length ? Math.max.apply(null, lv) : 0);
+}
 
 function state(icon, title, msg, btnHtml) {
   $('hdr').hidden = true;
@@ -90,7 +99,7 @@ async function start() {
       body: JSON.stringify({ action: 'liffPhonebook', idToken: idToken }) });
     const d = await r.json();
     if (!d.ok) return denied(d);
-    PEOPLE = (d.people || []).map(prep);
+    PEOPLE = (d.people || []).map(prep).map((p, i) => (p._i = i, p)).sort((a, b) => a._rk - b._rk || a._i - b._i);
     $('asof').textContent = d.at ? 'ข้อมูล ' + d.at : '';
     setup();
   } catch (e) {
@@ -115,6 +124,7 @@ function prep(p) {
   p._key = norm([full, p.nickname, p.pos, p.posFull, p.unit, p.group, p.sec].join(' '));
   p._tel = digits(p.mobile) + ' ' + digits(p.sat) + ' ' + digits(p.ext);
   const pos = String(p.pos || '');
+  p._rk = rankOf(pos);
   p._mgr = /^(ผจก|รจก|ชจก)/.test(pos);
   p._hp = p.k === 'h';
   p._exec = p.k === 'c' && /สำนักงานเขต/.test(p.group || '');
