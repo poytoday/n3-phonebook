@@ -26,7 +26,18 @@
   .chip.on { background: var(--g); border-color: var(--g); color: var(--ink); font-weight: 600; }
   select { margin-top: 8px; width: 100%; border: 0; border-radius: 10px; padding: 9px 10px; font: inherit; font-size: 14px; color: var(--ink); background: #fff; }
   main { padding: 10px 12px 40px; max-width: 720px; margin: 0 auto; }
+  .zones { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 0; scrollbar-width: none; align-items: center; }
+  .zones::-webkit-scrollbar { display: none; }
+  .zones .zl { flex: 0 0 auto; font-size: 11px; color: rgba(255,255,255,.75); margin-right: 2px; }
+  .zc { flex: 0 0 auto; border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.10); color: #fff; border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 12px; }
+  .zc.on { background: #fff; border-color: #fff; color: var(--p); font-weight: 700; }
+  .zc small { opacity: .7; font-size: 10px; }
   .count { font-size: 12px; color: var(--mut); margin: 4px 2px 8px; }
+  .zb { display: inline-block; background: var(--soft); color: var(--p); border-radius: 6px; padding: 1px 6px; font-size: 10px; font-weight: 700; margin-left: 6px; vertical-align: middle; }
+  .srv { margin-top: 18px; }
+  .srv .hint { font-size: 12px; color: var(--mut); margin: 6px 2px 0; line-height: 1.6; }
+  .srv .ldg { font-size: 13px; color: var(--mut); padding: 10px 2px; }
+  .elsew { display: block; width: 100%; margin-top: 10px; background: var(--soft); color: var(--p); border: 0; border-radius: 12px; padding: 12px; font: inherit; font-weight: 600; }
   .sect { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 14px 2px 8px; }
   .sect h2 { margin: 0; font-size: 16px; color: var(--p); }
   .sect span { font-size: 12px; color: var(--mut); white-space: nowrap; }
@@ -74,6 +85,7 @@
 <header id="hdr">
   <div class="top"><h1>📞 สมุดโทร N3 Connect</h1><span class="sub" id="asof"></span></div>
   <div class="search"><input id="q" type="text" inputmode="search" autocomplete="off" placeholder="ค้นชื่อ ชื่อเล่น ตำแหน่ง หน่วย หรือเบอร์"><button id="clr" aria-label="ล้าง">✕</button></div>
+  <div class="zones" id="zones" hidden></div>
   <div class="chips" id="chips"></div>
   <select id="grp" aria-label="เลือกหน่วยงาน"><option value="">ทุกหน่วยงาน</option></select>
 </header>
@@ -85,7 +97,8 @@
 // ค่าเหล่านี้ไม่ใช่ความลับ (LIFF ID / URL บอท) — ถ้าไม่มี ID token ที่ผ่านการตรวจ บอทจะไม่ส่งข้อมูลให้
 const LIFF_ID = '2012356608-WZdvLgcd';
 const API_URL = 'https://script.google.com/macros/s/AKfycbzRRsudr5IUzUZR3942N00S2v_n3wlTqi0zXl_LnZrbC9_YmcOr9s0Db_XTfaCJ5kfO/exec';
-const PAGE = 30, HOME_EXEC = 15, SS_KEY = 'n3pb_v2', SS_CHIP = 'n3pb_chip';
+const PAGE = 30, HOME_EXEC = 15, SS_KEY = 'n3pb_v2', SS_CHIP = 'n3pb_chip', SS_ZONE = 'n3pb_zone';
+const QWAIT = 350, QMIN = 2;   // I-25: หน่วงก่อนยิงค้นฝั่งเซิร์ฟเวอร์ · คำค้นสั้นกว่านี้ไม่ยิง
 const T0 = Date.now();
 
 const $ = id => document.getElementById(id);
@@ -112,6 +125,10 @@ const OPEN = {};   // จำกลุ่มแผนกที่เปิด/ป
 let PEOPLE = [], POOL = [], MINE = null, LINKED = false, FAVS = new Set(), OAMSG = '', TOKEN = '';
 let chip = ss.get(SS_CHIP) || 'home', group = '', shown = PAGE, showAll = false, ready = false;
 if (!CHIPS.some(c => c[0] === chip)) chip = 'home';
+// I-25 · เขต: zone = เขตที่เลือกอยู่ ('all' = ทุกเขต) · HZ = เขตบ้านของบอท (คนในเขตนี้ไม่ส่งฟิลด์ z มา)
+let ZONES = [], MYZONE = '', HZ = 'น3', zone = '', QRES = null, QBUSY = false, qSeq = 0, qTimer = 0;
+const zoneOf = p => p.z || HZ;
+const zoneName = z => 'กฟ' + String(z).charAt(0) + '.' + String(z).slice(1);
 
 function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 1600); }
 function state(icon, title, msg, btnHtml) {
@@ -171,6 +188,9 @@ function prep(p, i) {
 function apply(d, fromCache) {
   PEOPLE = (d.people || []).map(prep).sort(byRank);
   MINE = d.mine || null; LINKED = !!d.linked; OAMSG = d.oaMsg || ''; FAVS = new Set(d.favs || []);
+  HZ = d.hz || HZ; MYZONE = d.myZone || HZ; ZONES = d.zones || [];
+  if (!zone) { const keep = ss.get(SS_ZONE); zone = (keep === 'all' || ZONES.some(z => z.z === keep)) ? keep : MYZONE; }   // เปิดใหม่ = เขตตัวเอง · ในรอบเดิมจำที่เลือกไว้
+  drawZones();
   POOL = PEOPLE.slice();
   if (MINE) {   // คนในหน่วยของฉันค้นได้ด้วย (ไม่ซ้ำกับทั้งเล่ม)
     const have = new Set(PEOPLE.map(p => p.id));
@@ -178,29 +198,91 @@ function apply(d, fromCache) {
     MINE.groups.forEach(g => { g.people = g.people.map(p => prep(p, n++)).sort(byRank); g.people.forEach(p => { if (!have.has(p.id)) { POOL.push(p); have.add(p.id); } }); });
   }
   $('asof').textContent = d.at ? 'ข้อมูล ' + d.at + (fromCache ? ' ⟳' : '') : '';
-  const groups = [...new Set(PEOPLE.map(p => p.group).filter(Boolean))];
+  const groups = [...new Set(PEOPLE.filter(inZone).map(p => p.group).filter(Boolean))];
   $('grp').innerHTML = '<option value="">ทุกหน่วยงาน</option>' + groups.map(g => '<option' + (g === group ? ' selected' : '') + '>' + esc(g) + '</option>').join('');
   ready = true; $('hdr').hidden = false;
   render();
 }
 
+function drawZones() {
+  const list = ZONES.filter(z => z.chip);
+  if (list.length < 2) { $('zones').hidden = true; return; }   // มีเขตเดียว = ไม่ต้องให้เลือก
+  const b = (k, label, sub) => '<button class="zc' + (k === zone ? ' on' : '') + '" data-z="' + esc(k) + '">' + esc(label) + (sub ? ' <small>' + esc(sub) + '</small>' : '') + '</button>';
+  $('zones').innerHTML = '<span class="zl">เขต</span>' +
+    list.map(z => b(z.z, z.name, z.z === MYZONE ? 'เขตฉัน' : '')).join('') + b('all', 'ทุกเขต', '');
+  $('zones').hidden = false;
+}
+function setZone(z) {
+  if (z === zone) return;
+  zone = z; ss.set(SS_ZONE, z); shown = PAGE; QRES = null; qSeq++;   // ยกเลิกผลค้นเก่า
+  [...$('zones').children].forEach(x => { if (x.dataset.z) x.classList.toggle('on', x.dataset.z === zone); });
+  const groups = [...new Set(PEOPLE.filter(inZone).map(p => p.group).filter(Boolean))];
+  if (group && groups.indexOf(group) < 0) { group = ''; }
+  $('grp').innerHTML = '<option value="">ทุกหน่วยงาน</option>' + groups.map(g => '<option' + (g === group ? ' selected' : '') + '>' + esc(g) + '</option>').join('');
+  render(); askServer(); window.scrollTo(0, 0);
+}
+const inZone = p => zone === 'all' || zoneOf(p) === zone;
+
 function setupUI() {
   $('chips').innerHTML = CHIPS.map(([k, l]) => '<button class="chip' + (k === chip ? ' on' : '') + '" data-k="' + k + '">' + l + '</button>').join('');
   $('chips').onclick = e => { const b = e.target.closest('.chip'); if (b) setChip(b.dataset.k); };
+  $('zones').onclick = e => { const b = e.target.closest('.zc'); if (b) setZone(b.dataset.z); };
   $('grp').onchange = () => { group = $('grp').value; shown = PAGE; render(); };
-  let t; $('q').oninput = () => { $('clr').style.display = $('q').value ? 'block' : 'none'; clearTimeout(t); t = setTimeout(() => { shown = PAGE; render(); }, 250); };
+  let t; $('q').oninput = () => {
+    $('clr').style.display = $('q').value ? 'block' : 'none';
+    QRES = null; qSeq++;   // คำค้นเปลี่ยน = ทิ้งผลเก่าทันที
+    clearTimeout(t); t = setTimeout(() => { shown = PAGE; render(); }, 250);
+    clearTimeout(qTimer); qTimer = setTimeout(askServer, QWAIT);
+  };
   $('clr').onclick = () => clearSearch();
   $('main').onclick = onMainClick;
   $('main').addEventListener('toggle', e => { const d = e.target; if (d.matches && d.matches('details.grp')) OPEN[d.dataset.sec] = d.open; }, true);
 }
 function setChip(k) {
   chip = k; shown = PAGE; showAll = false; ss.set(SS_CHIP, k);
+  if (k === 'fav') { QRES = null; QBUSY = false; qSeq++; clearTimeout(qTimer); }   // ชิปโปรด = เฉพาะรายการในมือ
   [...$('chips').children].forEach(x => x.classList.toggle('on', x.dataset.k === chip));
   render(); window.scrollTo(0, 0);
 }
-function clearSearch() { $('q').value = ''; $('clr').style.display = 'none'; group = ''; $('grp').value = ''; shown = PAGE; render(); $('q').focus(); }
+async function askServer() {   // I-25 · ค้นพนักงานทุกระดับที่หน้าเว็บไม่มีในมือ
+  const raw = $('q').value.trim();
+  const my = ++qSeq;
+  if (!ready || !TOKEN || raw.length < QMIN || chip === 'fav') { QBUSY = false; return; }
+  const d9 = digits(raw);
+  if (/^[\d\s\-()+]+$/.test(raw) && d9.length < 4) { QBUSY = false; return; }   // เบอร์ต้อง ≥4 หลัก (กติกาเดียวกับเซิร์ฟเวอร์)
+  QBUSY = true; render();
+  let d;
+  try { d = await api({ action: 'liffPhonebook', idToken: TOKEN, op: 'search', q: raw, zone: zone }); }
+  catch (e) { d = { ok: false, error: 'net' }; }
+  if (my !== qSeq) return;   // พิมพ์ต่อ/เปลี่ยนเขตระหว่างรอ = ทิ้งผลนี้
+  QBUSY = false;
+  QRES = d && d.ok ? { people: (d.people || []).map(prep), n: d.n || 0, more: !!d.more, elsewhere: d.elsewhere || [], zone: d.zone }
+                   : { error: (d && d.error) || 'net', people: [], elsewhere: [] };
+  render();
+}
+function srvBlock() {
+  if (QBUSY) return '<div class="srv"><div class="ldg">⏳ กำลังค้นพนักงานทั้งหมด…</div></div>';
+  if (!QRES) return '';
+  if (QRES.error === 'slow_down') return '<div class="srv"><div class="hint">⏳ ค้นถี่เกินไป รอสักครู่แล้วลองใหม่</div></div>';
+  if (QRES.error) return QRES.error === 'bad_q' ? '' : '<div class="srv"><div class="hint">⚠️ ค้นพนักงานทั้งหมดไม่สำเร็จ ลองใหม่อีกครั้ง</div></div>';
+  if (!QRES.people.length) {
+    if (!QRES.elsewhere.length) return '';
+    const e = QRES.elsewhere, tot = e.reduce((a, x) => a + x.n, 0);
+    return '<div class="srv"><button class="elsew" data-act="zall">🔎 ไม่พบใน' + esc(zoneName(zone)) + ' แต่พบที่ ' +
+      esc(e.map(x => x.name + ' ' + x.n + ' คน').join(' · ')) + ' — แตะเพื่อค้นทุกเขต (' + tot + ')</button></div>';
+  }
+  const t = '👥 พนักงานทั้งหมด · ' + (zone === 'all' ? 'ทุกเขต' : zoneName(zone));
+  return '<div class="srv"><div class="sect"><h2>' + esc(t) + '</h2><span>' + QRES.people.length +
+    (QRES.more ? ' จาก ' + QRES.n.toLocaleString('th-TH') : '') + ' คน</span></div>' +
+    QRES.people.sort(byRank).map(card).join('') +
+    (QRES.more ? '<div class="hint">พิมพ์ให้เจาะจงขึ้นเพื่อดูคนที่เหลือ (แสดงได้สูงสุด ' + PAGE + ' คนต่อครั้ง)</div>' : '') + '</div>';
+}
+
+function clearSearch() { $('q').value = ''; $('clr').style.display = 'none'; group = ''; $('grp').value = ''; shown = PAGE;
+  QRES = null; QBUSY = false; qSeq++; clearTimeout(qTimer); render(); $('q').focus(); }
 
 function match(p, toks, dq) {
+  if (!inZone(p)) return false;
   if (chip === 'fav' && !FAVS.has(p.id)) return false;
   if (chip === 'exec' && !p._exec) return false;
   if (chip === 'mgr' && !p._mgr) return false;
@@ -215,15 +297,17 @@ function match(p, toks, dq) {
 function render() {
   if (!ready) return;
   const raw = $('q').value.trim();
-  if (!raw && chip === 'home' && !group && !showAll) return renderHome();
+  if (!raw && chip === 'home' && !group && !showAll) { QRES = null; return renderHome(); }
   const dq = digits(raw).length >= 4 && digits(raw).length >= raw.replace(/\s/g, '').length - 3 ? digits(raw) : '';
   const toks = raw.split(/\s+/).map(norm).filter(Boolean);
   const list = POOL.filter(p => match(p, toks, dq)).sort(byRank);
   const empty = chip === 'fav' && !raw
     ? '<div class="state"><div class="big">⭐</div><h2>ยังไม่มีรายชื่อโปรด</h2><p>กดปุ่ม ☆ ที่การ์ดของคนที่โทรหาบ่อย (รายการเดียวกับในแชต)</p></div>'
     : '<div class="state"><div class="big">🔍</div><h2>ไม่พบรายชื่อ</h2><p>ลองพิมพ์ชื่อเล่น นามสกุล ตำแหน่ง หรือชื่อหน่วย</p><button class="btn" data-act="clear">ล้างการค้นหา</button></div>';
-  $('main').innerHTML = (list.length ? '<div class="count">พบ ' + list.length.toLocaleString('th-TH') + ' รายการ</div>' + list.slice(0, shown).map(card).join('') : empty) +
-    (list.length > shown ? '<button class="more" data-act="more">แสดงเพิ่ม (' + (list.length - shown) + ')</button>' : '') + foot();
+  const srv = srvBlock();
+  const none = !list.length && !srv;   // ไม่พบทั้งในมือและที่เซิร์ฟเวอร์ ค่อยขึ้นจอว่าง
+  $('main').innerHTML = (list.length ? '<div class="count">พบ ' + list.length.toLocaleString('th-TH') + ' รายการ</div>' + list.slice(0, shown).map(card).join('') : (none ? empty : '')) +
+    (list.length > shown ? '<button class="more" data-act="more">แสดงเพิ่ม (' + (list.length - shown) + ')</button>' : '') + srv + foot();
 }
 function renderHome() {
   let h = '';
@@ -234,9 +318,9 @@ function renderHome() {
   } else if (!LINKED && OAMSG) {
     h += '<a class="banner" href="' + esc(oa('ผูกบัญชี')) + '">🔗 <b>ผูกบัญชี</b> เพื่อดูเบอร์ทุกคนใน<b>หน่วยของคุณ</b> ที่หน้าแรกนี้ ›</a>';
   }
-  const ex = PEOPLE.filter(p => p.k === 'c' && p.name).slice(0, HOME_EXEC);
-  h += '<div class="sect"><h2>👔 ผู้บริหาร</h2><span>' + ex.length + ' คนแรกตามตำแหน่ง</span></div>' + ex.map(card).join('');
-  h += '<button class="more" data-act="all">ดูรายชื่อทั้งหมด (' + POOL.length.toLocaleString('th-TH') + ')</button>' + foot();
+  const ex = PEOPLE.filter(p => p.k === 'c' && p.name && inZone(p)).slice(0, HOME_EXEC);
+  if (ex.length) h += '<div class="sect"><h2>👔 ผู้บริหาร' + (zone !== 'all' && zone !== HZ ? ' · ' + esc(zoneName(zone)) : '') + '</h2><span>' + ex.length + ' คนแรกตามตำแหน่ง</span></div>' + ex.map(card).join('');
+  h += '<button class="more" data-act="all">ดูรายชื่อทั้งหมด (' + POOL.filter(inZone).length.toLocaleString('th-TH') + ')</button>' + foot();
   $('main').innerHTML = h;
 }
 function foot() {
@@ -249,8 +333,9 @@ function card(p) {
   // รูป: แสดงตัวย่อก่อนเสมอ แล้วค่อยซ้อนรูปเมื่อโหลดเสร็จ · โหลดไม่ขึ้น → ตัดรูปทิ้ง เหลือตัวย่อ
   const img = !vac && p.photo ? '<img src="' + esc(p.photo) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="this.classList.add(\'ok\')" onerror="this.remove()">' : '';
   const tel = digits(p.mobile);
-  const nm = vac ? '<span style="color:var(--mut)">(ตำแหน่งว่าง)</span>'
-    : esc(p._full) + (p.nickname ? ' <small>(' + esc(p.nickname) + ')</small>' : '');
+  const zb = p.z && p.z !== MYZONE ? '<span class="zb">' + esc(zoneName(p.z)) + '</span>' : '';   // คนนอกเขตตัวเองติดป้ายให้เห็นชัด
+  const nm = (vac ? '<span style="color:var(--mut)">(ตำแหน่งว่าง)</span>'
+    : esc(p._full) + (p.nickname ? ' <small>(' + esc(p.nickname) + ')</small>' : '')) + zb;
   const pos = esc((p.st === 'รักษาการ' ? 'รักษาการ ' : '') + (p.pos || '')) + (p.sec ? ' ' + esc(p.sec) : '');
   const tels = [p.mobile ? '📱 ' + esc(p.mobile) : '', p.sat ? '📡 ' + esc(p.sat) : '', p.ext ? '☎️ ' + esc(p.ext) : ''].filter(Boolean).join('  ');
   const copyNo = p.mobile || p.sat || p.ext || '';
@@ -274,6 +359,7 @@ function onMainClick(e) {
   const a = b.dataset.act;
   if (a === 'more') { shown += PAGE; render(); }
   else if (a === 'all') { showAll = true; chip = 'all'; ss.set(SS_CHIP, 'all'); [...$('chips').children].forEach(x => x.classList.toggle('on', x.dataset.k === chip)); shown = PAGE; render(); window.scrollTo(0, 0); }
+  else if (a === 'zall') { setZone('all'); }
   else if (a === 'clear') clearSearch();
   else if (a === 'copy') copyText(b.dataset.v);
   else if (a === 'fav') toggleFav(b.dataset.id);
