@@ -9,6 +9,8 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://script.googleusercontent.com">
 <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;600;700&display=swap" rel="stylesheet">
+<!-- I-27 สตอรี่ · Alpine.js ใช้เฉพาะแถวสตอรี่ + ตัวแสดงเต็มจอ (ใบสั่งงาน F2) · ล็อกเวอร์ชันเต็ม + SRI · โหลดไม่ขึ้น = แถวสตอรี่ไม่แสดง หน้าค้นหาใช้ได้ปกติ -->
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.17.5/cdn.min.js" integrity="sha512-6KnFhHgmSX+kDsTz55gSTvN6Q7LnjIregXoc1Tz/wvv2TLjJQ41zneZbAiHogivc0Q71Tv1OLxK9GDRjZQyscQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
   :root { --p:#5C1668; --p2:#7A288A; --g:#F4B41A; --ink:#2B0A33; --mut:#7d6f82; --bg:#F6F1F8; --card:#fff; --line:#eadff0; --soft:#F3EAF6; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -58,6 +60,7 @@
   .acts { display: flex; flex-direction: column; gap: 6px; align-items: center; }
   .call { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: var(--p); color: #fff; text-decoration: none; font-size: 18px; }
   .mini { display: flex; gap: 4px; }
+  .invite { background: #fff; border: 1px dashed var(--p); color: var(--p); }
   .ib { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: #fff; color: var(--p); font-size: 14px; padding: 0; display: grid; place-items: center; }
   .ib.on { background: var(--g); border-color: var(--g); }
   .more { display: block; width: 100%; margin: 6px 0; border: 1px solid var(--line); background: #fff; color: var(--p); border-radius: 12px; padding: 12px; font: inherit; font-weight: 600; }
@@ -79,9 +82,64 @@
   .toast.on { opacity: .95; }
   .foot { text-align: center; font-size: 11px; color: var(--mut); margin-top: 16px; line-height: 1.8; }
   .foot a { color: var(--p); font-weight: 600; text-decoration: none; font-size: 13px; }
+  /* ---------- I-27 สตอรี่ ---------- */
+  [x-cloak] { display: none !important; }
+  .stories { background: var(--p); display: flex; gap: 12px; overflow-x: auto; padding: 12px 14px 4px; scrollbar-width: none; }
+  .stories::-webkit-scrollbar { display: none; }
+  .stories[hidden] { display: none; }
+  .st { flex: 0 0 auto; width: 66px; background: none; border: 0; padding: 0; color: #fff; font: inherit; cursor: pointer; text-align: center; }
+  .st .ring { display: block; width: 62px; height: 62px; margin: 0 auto; border-radius: 50%; padding: 3px;
+    background: conic-gradient(var(--g), #ff7aa8, #b46cff, var(--g)); }
+  .st.seen .ring { background: rgba(255,255,255,.35); }
+  .st .in { display: flex; width: 100%; height: 100%; border-radius: 50%; align-items: center; justify-content: center; font-size: 26px; border: 2px solid var(--p); }
+  .st .lb { display: block; font-size: 11px; margin-top: 4px; opacity: .95; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .k-ann { background: linear-gradient(150deg, #7A288A, #2B0A33); }
+  .k-news { background: linear-gradient(150deg, #1E5AA8, #0D2647); }
+  .k-wx { background: linear-gradient(150deg, #1F7A8C, #0B3340); }
+  .k-ord { background: linear-gradient(150deg, #C26A12, #4A2405); }
+  .sv { position: fixed; inset: 0; z-index: 50; color: #fff; display: flex; flex-direction: column; user-select: none; -webkit-user-select: none; touch-action: none; }
+  .sv .bars { display: flex; gap: 4px; padding: calc(10px + env(safe-area-inset-top)) 12px 0; }
+  .sv .bar { flex: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,.35); overflow: hidden; }
+  .sv .bar i { display: block; height: 100%; background: #fff; }
+  .sv .top { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+  .sv .top .em { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.18); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .sv .top b { font-size: 14px; } .sv .top small { display: block; font-size: 11px; opacity: .8; }
+  .sv .x { margin-left: auto; background: rgba(0,0,0,.25); color: #fff; border: 0; width: 36px; height: 36px; border-radius: 50%; font-size: 18px; cursor: pointer; }
+  .sv .body { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 26px 40px; }
+  .sv .big { font-size: 64px; margin-bottom: 18px; }
+  .sv h2 { font-size: 24px; line-height: 1.35; margin: 0 0 12px; word-break: break-word; }
+  .sv p { font-size: 17px; line-height: 1.65; margin: 0; opacity: .95; white-space: pre-line; word-break: break-word; }
+  .sv .more { align-self: center; width: calc(100% - 52px); margin: 0 0 calc(26px + env(safe-area-inset-bottom)); background: #fff; color: var(--ink); border: 0; border-radius: 22px; padding: 12px; font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; }
+  .sv .hold { position: absolute; left: 0; right: 0; bottom: calc(80px + env(safe-area-inset-bottom)); text-align: center; font-size: 12px; opacity: .7; }
 </style>
 </head>
 <body>
+<div id="stw" x-data="n3Stories">
+  <nav class="stories" id="stories" hidden :hidden="!cats.length" aria-label="สตอรี่ กฟน.3">
+    <template x-for="(c, n) in cats" :key="c.k">
+      <button type="button" class="st" :class="{ seen: allSeen(c) }" @click="openCat(n)" :aria-label="c.t">
+        <span class="ring"><span class="in" :class="'k-' + c.k" x-text="emo(c.k)"></span></span>
+        <span class="lb" x-text="c.t"></span>
+      </button>
+    </template>
+  </nav>
+  <div class="sv" x-cloak x-show="open" :class="cat ? 'k-' + cat.k : ''" role="dialog" aria-modal="true"
+       @pointerdown="down($event)" @pointerup="up($event)" @pointercancel="hold(false)" @keydown.escape.window="close()">
+    <template x-if="cat && item">
+      <div style="display:contents">
+        <div class="bars"><template x-for="(it, i) in cat.items" :key="it.id"><span class="bar"><i :style="{ width: barW(i) + '%' }"></i></span></template></div>
+        <div class="top">
+          <span class="em" x-text="emo(cat.k)"></span>
+          <div><b x-text="cat.t"></b><small x-text="item.date"></small></div>
+          <button type="button" class="x" aria-label="ปิด" @pointerdown.stop @pointerup.stop @click.stop="close()">✕</button>
+        </div>
+        <div class="body"><div class="big" x-text="emo(cat.k)"></div><h2 x-text="item.title"></h2><p x-text="item.text"></p></div>
+        <div class="hold" x-show="paused">หยุดชั่วคราว</div>
+        <button type="button" class="more" x-show="safeLink(item.link)" @pointerdown.stop @pointerup.stop @click.stop="openLink(item.link)">ดูเพิ่ม</button>
+      </div>
+    </template>
+  </div>
+</div>
 <header id="hdr">
   <div class="top"><h1>📞 สมุดโทร N3 Connect</h1><span class="sub" id="asof"></span></div>
   <div class="search"><input id="q" type="text" inputmode="search" autocomplete="off" placeholder="ค้นชื่อ ชื่อเล่น ตำแหน่ง หน่วย หรือเบอร์"><button id="clr" aria-label="ล้าง">✕</button></div>
@@ -98,6 +156,7 @@
 const LIFF_ID = '2012356608-WZdvLgcd';
 const API_URL = 'https://script.google.com/macros/s/AKfycbzRRsudr5IUzUZR3942N00S2v_n3wlTqi0zXl_LnZrbC9_YmcOr9s0Db_XTfaCJ5kfO/exec';
 const PAGE = 30, HOME_EXEC = 15, SS_KEY = 'n3pb_v2', SS_CHIP = 'n3pb_chip', SS_ZONE = 'n3pb_zone';
+const SHARE_WITH_NUMBER = true;   // I-26: true = การ์ดที่แชร์มีเบอร์ + ปุ่มโทร · false = มีแต่ปุ่ม "เปิดในสมุดโทร" (ผู้รับต้องผ่านสิทธิ์จึงเห็นเบอร์)
 const QWAIT = 350, QMIN = 2;   // I-25: หน่วงก่อนยิงค้นฝั่งเซิร์ฟเวอร์ · คำค้นสั้นกว่านี้ไม่ยิง
 const T0 = Date.now();
 
@@ -127,6 +186,8 @@ let chip = ss.get(SS_CHIP) || 'home', group = '', shown = PAGE, showAll = false,
 if (!CHIPS.some(c => c[0] === chip)) chip = 'home';
 // I-25 · เขต: zone = เขตที่เลือกอยู่ ('all' = ทุกเขต) · HZ = เขตบ้านของบอท (คนในเขตนี้ไม่ส่งฟิลด์ z มา)
 let ZONES = [], MYZONE = '', HZ = 'น3', zone = '', QRES = null, QBUSY = false, qSeq = 0, qTimer = 0;
+// I-26 · CAN_SHARE = แอป LINE รองรับ shareTargetPicker (เปิดนอกแอป/สวิตช์ปิด = ไม่มีปุ่ม) · SHR = คนในการ์ดที่วาดรอบนี้ (ปุ่ม ↗ อ้างด้วยลำดับ) · DQ = คำค้นจากลิงก์ ?q=
+let CAN_SHARE = false, SHR = [], DQ = '';
 const zoneOf = p => p.z || HZ;
 const zoneName = z => 'กฟ' + String(z).charAt(0) + '.' + String(z).slice(1);
 
@@ -145,12 +206,16 @@ async function start() {
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
     TOKEN = liff.getIDToken();
+    try { CAN_SHARE = !!(liff.isApiAvailable && liff.isApiAvailable('shareTargetPicker')); } catch (e) { CAN_SHARE = false; }
+    DQ = deepQ();
     if (!TOKEN) { state('🔒', 'เข้าสู่ระบบไม่สำเร็จ', 'ลองปิดหน้านี้แล้วเปิดใหม่จากเมนู N3 Connect'); return; }
     const d = await api({ action: 'liffPhonebook', idToken: TOKEN });
     if (!d.ok) return denied(d);
     ss.set(SS_KEY, JSON.stringify(d));
     apply(d, false);
+    if (DQ) useDeepQ();
     console.log('[N3PB] โหลด ' + ((Date.now() - T0) / 1000).toFixed(1) + ' วิ · ' + POOL.length + ' รายชื่อ');
+    requestAnimationFrame(() => setTimeout(() => { window.N3PB_READY = true; window.dispatchEvent(new Event('n3pb-ready')); }, 0));   // I-27: สตอรี่โหลดหลังหน้าแรกวาดเสร็จ
   } catch (e) {
     if (!ready) state('⚠️', 'เปิดสมุดโทรไม่สำเร็จ', 'ตรวจสอบอินเทอร์เน็ต แล้วลองใหม่อีกครั้ง', '<button class="btn" onclick="location.reload()">ลองใหม่</button>');
   }
@@ -297,6 +362,7 @@ function match(p, toks, dq) {
 function render() {
   if (!ready) return;
   const raw = $('q').value.trim();
+  SHR = [];
   if (!raw && chip === 'home' && !group && !showAll) { QRES = null; return renderHome(); }
   const dq = digits(raw).length >= 4 && digits(raw).length >= raw.replace(/\s/g, '').length - 3 ? digits(raw) : '';
   const toks = raw.split(/\s+/).map(norm).filter(Boolean);
@@ -324,7 +390,7 @@ function renderHome() {
   $('main').innerHTML = h;
 }
 function foot() {
-  return '<div class="foot">' + (OAMSG ? '<a href="' + esc(oa('ข้อมูลของฉัน')) + '">✏️ แจ้งแก้ข้อมูลของฉัน</a><br>' : '') + 'N3 Connect · ข้อมูลชุดเดียวกับที่ค้นในแชต</div>';
+  return (CAN_SHARE ? '<button class="more invite" data-act="invite">💬 ชวนเพื่อนร่วมงานใช้สมุดโทร</button>' : '') + '<div class="foot">' + (OAMSG ? '<a href="' + esc(oa('ข้อมูลของฉัน')) + '">✏️ แจ้งแก้ข้อมูลของฉัน</a><br>' : '') + 'N3 Connect · ข้อมูลชุดเดียวกับที่ค้นในแชต</div>';
 }
 
 function card(p) {
@@ -342,6 +408,7 @@ function card(p) {
   const isFav = FAVS.has(p.id);
   const fav = !vac && p.id ? '<button class="ib' + (isFav ? ' on' : '') + '" data-act="fav" data-id="' + esc(p.id) + '" aria-label="รายชื่อโปรด">' + (isFav ? '★' : '☆') + '</button>' : '';
   const cp = copyNo ? '<button class="ib" data-act="copy" data-v="' + esc(copyNo) + '" aria-label="คัดลอกเบอร์">📋</button>' : '';
+  const sh = CAN_SHARE && !vac ? '<button class="ib" data-act="share" data-si="' + (SHR.push(p) - 1) + '" aria-label="ส่งต่อรายชื่อ">↗</button>' : '';
   return '<div class="card' + (p.self ? ' me' : '') + '"><div class="av' + (vac ? ' v' : '') + '">' + ini + img + '</div><div class="info">' +
     '<div class="nm">' + nm + '</div>' +
     (pos ? '<span class="pos' + (p._hp ? ' hp' : '') + '">' + pos + '</span>' : '') +
@@ -350,7 +417,7 @@ function card(p) {
     (p.self && OAMSG ? '<a class="self" href="' + esc(oa('ข้อมูลของฉัน')) + '">นี่คือคุณ · ✏️ แจ้งแก้ข้อมูล</a>' : '') +
     '</div><div class="acts">' +
     (tel.length >= 9 ? '<a class="call" href="tel:' + tel + '" aria-label="โทรมือถือ">📞</a>' : '') +
-    ((cp || fav) ? '<div class="mini">' + cp + fav + '</div>' : '') +
+    ((cp || fav || sh) ? '<div class="mini">' + cp + sh + fav + '</div>' : '') +
     '</div></div>';
 }
 
@@ -363,6 +430,8 @@ function onMainClick(e) {
   else if (a === 'clear') clearSearch();
   else if (a === 'copy') copyText(b.dataset.v);
   else if (a === 'fav') toggleFav(b.dataset.id);
+  else if (a === 'share') { const p = SHR[Number(b.dataset.si)]; if (p) shareTo([shareCard(p)], 'card'); }
+  else if (a === 'invite') shareTo([inviteCard()], 'invite');
 }
 function copyText(v) {
   const ok = () => toast('คัดลอก ' + v + ' แล้ว');
@@ -385,7 +454,160 @@ async function toggleFav(id) {
   const y2 = window.scrollY; render(); window.scrollTo(0, y2);
 }
 
+// ======================= I-26 แชร์การ์ดรายชื่อ (ส่งในนามผู้ใช้ · ไม่กินโควตา push) =======================
+// การ์ดสร้างจากฟิลด์ที่หน้าเว็บมีอยู่แล้วเท่านั้น · ไม่มีรูป/empId/วันเกิด · แชร์ทีละ 1 คน · altText ไม่มีเบอร์
+const PB_URL = 'https://liff.line.me/' + LIFF_ID;
+const cut = (v, n) => { const t = String(v == null ? '' : v).replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+const ftxt = (text, o) => Object.assign({ type: 'text', text: text, wrap: true, size: 'sm', color: '#555555' }, o || {});
+const fbtn = (label, uri, primary) => Object.assign({ type: 'button', style: primary ? 'primary' : 'secondary', height: 'sm', action: { type: 'uri', label: label, uri: uri } }, primary ? { color: '#74045F' } : {});
+const fhead = () => ({ type: 'box', layout: 'vertical', backgroundColor: '#74045F', paddingAll: '12px',
+  contents: [ftxt('📇 สมุดโทร N3 Connect', { color: '#FFFFFF', weight: 'bold', size: 'sm' })] });
+function shareCard(p) {
+  const full = cut(p._full, 60);
+  const pos = cut((p.st === 'รักษาการ' ? 'รักษาการ ' : '') + (p.pos || '') + (p.sec ? ' ' + p.sec : ''), 80);
+  const tel = digits(p.mobile);
+  const body = [ftxt(full + (p.nickname ? ' (' + cut(p.nickname, 20) + ')' : ''), { size: 'lg', weight: 'bold', color: '#222222' })];
+  if (pos) body.push(ftxt(pos));
+  if (p.unit) body.push(ftxt(cut(p.unit, 80)));
+  if (p.z && p.z !== HZ) body.push(ftxt(zoneName(p.z), { size: 'xs', color: '#74045F', weight: 'bold' }));
+  if (SHARE_WITH_NUMBER) {
+    const n = [p.mobile ? '📱 ' + cut(p.mobile, 30) : '', p.ext ? '☎️ ' + cut(p.ext, 20) : ''].filter(Boolean).join('   ');
+    if (n) body.push(ftxt(n, { color: '#222222', margin: 'md' }));
+  }
+  const btns = [];
+  if (SHARE_WITH_NUMBER && tel.length >= 9) btns.push(fbtn('📞 โทร', 'tel:' + tel, true));
+  btns.push(fbtn('📱 เปิดในสมุดโทร', PB_URL + '?q=' + encodeURIComponent(full.replace(/…$/, '')), !btns.length));
+  return { type: 'flex', altText: cut('รายชื่อ: ' + full + (p.pos ? ' ' + p.pos : ''), 100),
+    contents: { type: 'bubble', size: 'kilo', header: fhead(),
+      body: { type: 'box', layout: 'vertical', spacing: 'xs', contents: body },
+      footer: { type: 'box', layout: 'vertical', spacing: 'sm', contents: btns } } };
+}
+function inviteCard() {
+  const m = /oaMessage\/([^/?#]+)/.exec(OAMSG || '');
+  const btns = [fbtn('📱 เปิดสมุดโทร', PB_URL, true)];
+  if (m) btns.push(fbtn('➕ เพิ่มเพื่อน N3 Connect', 'https://line.me/R/ti/p/' + m[1]));
+  return { type: 'flex', altText: 'ชวนใช้สมุดโทร N3 Connect',
+    contents: { type: 'bubble', size: 'kilo', header: fhead(),
+      body: { type: 'box', layout: 'vertical', spacing: 'sm', contents: [
+        ftxt('ค้นเบอร์ผู้บริหารและเพื่อนร่วมงาน กฟน.3 ในไลน์ได้ทันที', { color: '#222222', weight: 'bold' }),
+        ftxt('ใช้ได้เฉพาะเพื่อนของ N3 Connect ที่ผ่านการอนุมัติ', { size: 'xs' })] },
+      footer: { type: 'box', layout: 'vertical', spacing: 'sm', contents: btns } } };
+}
+async function shareTo(msgs, kind) {
+  if (!CAN_SHARE) return;
+  try {
+    const r = await liff.shareTargetPicker(msgs, { isMultiple: true });
+    if (r && r.status === 'success') {
+      toast('ส่งแล้ว');
+      api({ action: 'liffPhonebook', idToken: TOKEN, op: 'ev', ev: 'share', k: kind }).catch(() => {});
+    }
+  } catch (e) { toast('ส่งไม่สำเร็จ ลองใหม่อีกครั้ง'); }
+}
+// ลิงก์ลึก ?q=ชื่อ (จากปุ่ม "เปิดในสมุดโทร") · LINE ส่งมาทาง liff.state ก่อน init แล้ว SDK เปลี่ยนเป็น ?q= ให้
+function deepQ() {
+  let q = '';
+  try {
+    const u = new URLSearchParams(location.search);
+    q = u.get('q') || '';
+    const st = u.get('liff.state');
+    if (!q && st) q = new URLSearchParams(st.replace(/^[^?]*\?/, '')).get('q') || '';
+  } catch (e) { q = ''; }
+  q = String(q).replace(/[\u0000-\u001f<>]/g, '').replace(/\s+/g, ' ').trim();
+  return q.length >= QMIN && q.length <= 40 ? q : '';
+}
+function useDeepQ() {
+  const q = DQ; DQ = '';
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}   // รีโหลดแล้วไม่ค้นซ้ำ
+  $('q').value = q; $('clr').style.display = 'block';
+  group = ''; $('grp').value = ''; showAll = false;
+  chip = 'all'; ss.set(SS_CHIP, 'all'); [...$('chips').children].forEach(x => x.classList.toggle('on', x.dataset.k === chip));
+  if (zone !== 'all') setZone('all'); else { shown = PAGE; QRES = null; render(); askServer(); }
+}
+
 start();
+</script>
+<script>
+'use strict';
+// ======================= I-27 สตอรี่ กฟน.3 (Alpine.js · ใบสั่งงาน F2) =======================
+// ข้อความทุกช่องผ่าน x-text (= textContent) · ห้าม x-html · ลิงก์รับเฉพาะ https:// เปิดด้วย liff.openWindow({external:true})
+// "ดูแล้ว" เก็บแค่ id ใน localStorage (ครอบ try/catch · ใช้ไม่ได้ = ถือว่ายังไม่ดู) · โหลดไม่สำเร็จ = แถวไม่ขึ้นเงียบๆ
+const ST_SEEN = 'n3pb_seen', ST_MS = 6000, ST_HOLD = 220, ST_SWIPE = 80;
+const stSeenLoad = () => { try { const a = JSON.parse(localStorage.getItem(ST_SEEN) || '[]'); return Array.isArray(a) ? a.filter(x => typeof x === 'string') : []; } catch (e) { return []; } };
+const stSeenSave = a => { try { localStorage.setItem(ST_SEEN, JSON.stringify(a.slice(-300))); } catch (e) {} };
+document.addEventListener('alpine:init', () => {
+  Alpine.data('n3Stories', () => ({
+    cats: [], seen: {}, open: false, ci: 0, ii: 0, prog: 0, paused: false,
+    _raf: 0, _last: 0, _hold: 0, _held: false, _x0: 0, _y0: 0, _logged: {},
+    get cat() { return this.cats[this.ci] || null; },
+    get item() { return this.cat ? this.cat.items[this.ii] || null : null; },
+    init() {
+      stSeenLoad().forEach(id => { this.seen[id] = 1; });
+      if (window.N3PB_READY) this.load(); else window.addEventListener('n3pb-ready', () => this.load(), { once: true });
+      document.addEventListener('visibilitychange', () => { if (document.hidden && this.open) this.paused = true; });
+    },
+    async load() {
+      try {
+        const d = await api({ action: 'liffPhonebook', idToken: TOKEN, op: 'stories' });
+        if (!d || !d.ok || !Array.isArray(d.stories)) return;
+        this.cats = d.stories.filter(c => c && typeof c.k === 'string' && Array.isArray(c.items) && c.items.length)
+          .map(c => ({ k: c.k, t: String(c.t || ''), items: c.items.map(it => ({ id: String(it.id || ''), title: String(it.title || ''), text: String(it.text || ''),
+            link: String(it.link || ''), date: String(it.date || '') })) }));
+      } catch (e) {}   // เงียบ: ไม่กระทบหน้าค้นหา
+    },
+    emo(k) { return ({ ann: '📢', news: '📰', wx: '⛈', ord: '📋' })[k] || '📌'; },
+    allSeen(c) { return c.items.every(it => this.seen[it.id]); },
+    barW(i) { return i < this.ii ? 100 : i === this.ii ? Math.round(this.prog * 100) : 0; },
+    safeLink(u) { return /^https:\/\/[^\s]+$/.test(String(u || '')); },
+    openCat(n) {
+      const c = this.cats[n]; if (!c) return;
+      this.ci = n; const f = c.items.findIndex(it => !this.seen[it.id]); this.ii = f < 0 ? 0 : f;
+      this.open = true; this.paused = false; this.prog = 0; document.documentElement.style.overflow = 'hidden';
+      this.mark(); this.tick();
+    },
+    close() { this.open = false; cancelAnimationFrame(this._raf); this._raf = 0; document.documentElement.style.overflow = ''; },
+    mark() {
+      const it = this.item, c = this.cat; if (!it || !c) return;
+      if (!this.seen[it.id]) { this.seen[it.id] = 1; stSeenSave(Object.keys(this.seen)); }
+      if (!this._logged[c.k]) { this._logged[c.k] = 1; api({ action: 'liffPhonebook', idToken: TOKEN, op: 'ev', ev: 'story', k: c.k }).catch(() => {}); }
+    },
+    tick() {
+      cancelAnimationFrame(this._raf); this._last = performance.now();
+      const step = now => {
+        if (!this.open) return;
+        const dt = now - this._last; this._last = now;
+        if (!this.paused) { this.prog += dt / ST_MS; if (this.prog >= 1) { this.next(); if (!this.open) return; } }
+        this._raf = requestAnimationFrame(step);
+      };
+      this._raf = requestAnimationFrame(step);
+    },
+    go(ci, ii) { this.ci = ci; this.ii = ii; this.prog = 0; this.mark(); },
+    next() {
+      if (this.ii < this.cat.items.length - 1) return this.go(this.ci, this.ii + 1);
+      if (this.ci < this.cats.length - 1) return this.go(this.ci + 1, 0);
+      this.close();
+    },
+    prev() {
+      if (this.ii > 0) return this.go(this.ci, this.ii - 1);
+      if (this.ci > 0) return this.go(this.ci - 1, this.cats[this.ci - 1].items.length - 1);
+      this.prog = 0;
+    },
+    hold(on) { this.paused = !!on; },
+    down(e) { this._x0 = e.clientX; this._y0 = e.clientY; this._held = false; clearTimeout(this._hold);
+      this._hold = setTimeout(() => { this._held = true; this.hold(true); }, ST_HOLD); },
+    up(e) {
+      clearTimeout(this._hold);
+      if (e.clientY - this._y0 > ST_SWIPE) return this.close();          // ปัดลง = ปิด
+      if (this._held) { this._held = false; return this.hold(false); }    // กดค้าง = หยุด · ปล่อย = เล่นต่อ
+      if (this.paused) this.hold(false);
+      if (e.clientX < window.innerWidth / 3) this.prev(); else this.next();   // แตะซ้าย = ย้อน · ขวา = ถัดไป
+    },
+    openLink(u) {
+      if (!this.safeLink(u)) return;
+      this.hold(true);
+      try { if (window.liff && liff.openWindow) liff.openWindow({ url: u, external: true }); else window.open(u, '_blank', 'noopener'); } catch (e) {}
+    }
+  }));
+});
 </script>
 </body>
 </html>
