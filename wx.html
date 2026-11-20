@@ -85,6 +85,7 @@
   .wxm.open .wx { display: block; -webkit-line-clamp: unset; }
   .wxm .wm { margin-top: 4px; color: var(--mut); font-size: 12px; }
   .wxpin { font-size: 17px; line-height: 1; text-align: center; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 2px #fff; }
+  .natpin { font-size: 15px; line-height: 1; text-align: center; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
   .tmdpin { font-size: 15px; line-height: 1; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
 </style>
 </head>
@@ -148,6 +149,7 @@
         <template x-for="ly in toggles" :key="ly.id">
           <button class="cbtn" :class="ly.on && 'on'" @click="toggle(ly.id)" x-text="(ly.on ? '☑ ' : '☐ ') + ly.label"></button>
         </template>
+        <button class="cbtn" x-show="nat.length" @click="goView()" x-text="det ? '🇹🇭 ทั้งประเทศ' : '🔎 กฟน.3 รายหน่วย'"></button>
         <button class="cbtn" x-show="geoOk" @click="locate()" x-text="locBusy ? '📍 กำลังหา…' : '📍 ตำแหน่งฉัน'"></button>
       </div>
       <div class="legend">
@@ -200,6 +202,25 @@
       </div>
     </template>
 
+    <!-- การ์ดจังหวัด (ชั้นทั้งประเทศ) -->
+    <template x-if="selP">
+      <div class="card">
+        <div class="chd" :style="'background:' + color(selP.lv)">
+          <div><div class="n" x-text="lvIcon(selP.lv) + ' จ.' + selP.p"></div><div class="s" x-text="lvName(selP.lv) + ' · ภาพรวมจังหวัด (จุดตัวเมือง)'"></div></div>
+          <button class="x" @click="selP = null" aria-label="ปิด">✕</button>
+        </div>
+        <div class="cbd">
+          <div class="row" x-show="selP.tmd"><span class="k">ประกาศกรมอุตุฯ</span><span class="v" x-text="'📢 ' + selP.tmd"></span></div>
+          <div class="row" x-show="wxOf(selP).i"><span class="k">อากาศ 3 ชม. ข้างหน้า</span><span class="v" x-text="wxOf(selP).i + ' ' + wxOf(selP).t"></span></div>
+          <div class="row"><span class="k">ช่วงเวลาคาด</span><span class="v" x-text="selP.win || '-'"></span></div>
+          <div class="row"><span class="k">ลมกระโชกสูงสุด</span><span class="v" x-text="selP.gust + ' กม./ชม.'"></span></div>
+          <div class="row"><span class="k">ฝน 3 ชม.</span><span class="v" x-text="selP.rain3h + ' มม.'"></span></div>
+          <button class="lnk" x-show="selP.n3" @click="zoomProv(selP.p)" x-text="'🔎 ดูรายหน่วย กฟส. ใน จ.' + selP.p"></button>
+          <div class="k" x-show="!selP.n3" style="color:var(--mut);font-size:12px;margin-top:6px">นอกเขต กฟน.3 · แสดงภาพรวมจังหวัดเท่านั้น</div>
+        </div>
+      </div>
+    </template>
+
     <!-- การ์ดหมู่บ้านที่แตะ -->
     <template x-if="selV">
       <div class="card">
@@ -234,6 +255,23 @@
       </div>
     </template>
 
+    <template x-if="nat.length">
+      <div>
+        <h3 x-text="'🇹🇭 ทั้งประเทศ · ' + natSummary"></h3>
+        <div class="list">
+          <template x-for="p in natWatch.slice(0, natShow)" :key="p.k">
+            <button class="li" @click="pickP(p, true)">
+              <span class="dot" :style="'background:' + color(p.lv)"></span>
+              <span class="nm"><span x-text="(p.tmd ? '📢 ' : '') + (wxOf(p).i ? wxOf(p).i + ' ' : '') + 'จ.' + p.p"></span> <span class="pv" x-text="p.n3 ? 'กฟน.3' : ''"></span></span>
+              <span class="mt" x-text="p.lv ? (p.win || lvName(p.lv)) : (p.tmd ? 'มีประกาศ' : 'ปกติ')"></span>
+            </button>
+          </template>
+          <div class="li" x-show="!natWatch.length"><span class="nm">ทุกจังหวัดปกติ · ไม่มีประกาศเตือน</span></div>
+        </div>
+        <button class="more" x-show="natWatch.length > natShow" @click="natShow = natWatch.length" x-text="'แสดงทั้งหมด ' + natWatch.length + ' จังหวัด'"></button>
+      </div>
+    </template>
+
     <div class="foot">
       <div x-text="note"></div>
       <div x-text="crit"></div>
@@ -254,6 +292,7 @@ const BASEMAP = { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' };   // เปลี่ยนผู้ให้บริการแผนที่ฐานที่นี่
 const CENTER = [15.4, 100.4], ZOOM = 8;   // กลาง กฟน.3 (ก่อนรู้ขอบเขตหน่วย)
 const STALE_MS = 3 * 3600e3;
+const DETAIL_Z = 8;   // ซูม ≥ นี้ = รายหน่วย กฟน.3 · ต่ำกว่า = ภาพรวมทั้งประเทศ (เมื่อเซิร์ฟเวอร์ส่ง nat)
 const LV = [
   { name: 'ปกติ', icon: '🟢', color: '#38A169' },
   { name: 'เฝ้าระวัง', icon: '🟡', color: '#D69E2E' },
@@ -279,6 +318,8 @@ const LAYERS = [
   { id: 'unit', label: 'หน่วย', toggle: false, on: true, build: ctx => ctx.unitLayer() },
   { id: 'tmd', label: 'ประกาศกรมอุตุฯ', toggle: false, on: true, build: ctx => ctx.tmdLayer() },
   { id: 'wxi', label: 'ไอคอนอากาศ', toggle: true, on: true, build: ctx => ctx.wxLayer() },
+  { id: 'natOut', label: 'จังหวัดนอก กฟน.3', toggle: false, on: true, build: ctx => ctx.natLayer(false) },
+  { id: 'natN3', label: 'จังหวัดใน กฟน.3', toggle: false, on: true, build: ctx => ctx.natLayer(true) },
   { id: 'me', label: 'ตำแหน่งฉัน', toggle: false, on: true, build: ctx => ctx.meLayer() }];
 
 // ---------- ตัวช่วย ----------
@@ -307,6 +348,13 @@ function cleanVil(v, i) {
   if (!isFinite(lat) || !isFinite(lng)) return null;
   return { k: 'v' + i, n: str(v.n, 80), u: str(v.u, 60), lat, lng, pop: num(v.pop), tier: Math.max(0, Math.min(3, Math.floor(num(v.tier)))), approx: !!v.approx };
 }
+function cleanNat(p, i) {
+  const lat = Number(p && p.lat), lng = Number(p && p.lng);
+  if (!p || !p.p || !isFinite(lat) || !isFinite(lng)) return null;
+  return { k: 'p' + i, p: str(p.p, 40), lat, lng, lv: Math.max(0, Math.min(3, Math.floor(num(p.lv)))), gust: num(p.gust), rain3h: num(p.rain3h), rain1h: 0, rainNear: 0,
+    ts: !!p.ts, win: str(p.win, 30), n3: !!p.n3, tmd: str(p.tmd, 120),
+    wc: p.wc == null || !isFinite(Number(p.wc)) ? null : Math.max(0, Math.min(99, Math.round(Number(p.wc)))) };
+}
 function cleanTmd(a, i) {
   if (!a || !a.title) return null;
   const pub = str(a.pub, 40), exp = str(a.exp, 40), provs = Array.isArray(a.provs) ? a.provs.slice(0, 12).map(p => str(p, 30)) : [];
@@ -319,9 +367,11 @@ document.addEventListener('alpine:init', () => {
   Alpine.data('wxApp', () => ({
     st: 'load', stIcon: '⛈', stTitle: 'กำลังเปิดแผนที่อากาศ…', stMsg: 'โปรดรอสักครู่', stOa: '', stRetry: false,
     inClient: false, mapOk: true, geoOk: !!navigator.geolocation, locBusy: false,
-    units: [], villages: [], tmd: [], tmdOpen: false, morn: null, mornOpen: false, _tok: '', upd: '', at: 0, note: '', src: '', cfg: {},
+    units: [], villages: [], tmd: [], tmdOpen: false, nat: [], selP: null, natShow: 10, det: true, morn: null, mornOpen: false, _tok: '', upd: '', at: 0, note: '', src: '', cfg: {},
     sel: null, selV: null, selVil: [], vilShow: 20, listShow: 15, near: '', toastMsg: '', toggles: LAYERS.filter(l => l.toggle).map(l => ({ id: l.id, label: l.label, on: l.on })),
 
+    get natWatch() { return this.nat.filter(p => p.lv || p.tmd).sort((a, b) => b.lv - a.lv || (b.tmd ? 1 : 0) - (a.tmd ? 1 : 0) || b.gust - a.gust); },
+    get natSummary() { const c = [0, 0, 0, 0]; let t = 0; this.nat.forEach(p => { c[p.lv]++; if (p.tmd) t++; }); return '🔴 ' + c[3] + ' · 🟠 ' + c[2] + ' · 🟡 ' + c[1] + ' · 📢 ' + t + ' จังหวัด'; },
     get stale() { return this.at && Date.now() - this.at > STALE_MS; },
     get updText() { return this.upd ? 'อัปเดต ' + this.upd + ' · พยากรณ์จากโมเดล' : 'พยากรณ์จากโมเดล'; },
     get summary() { const c = [0, 0, 0, 0]; this.units.forEach(u => c[u.lv]++); return '🔴 ' + c[3] + ' · 🟠 ' + c[2] + ' · 🟡 ' + c[1] + ' · ปกติ ' + c[0]; },
@@ -369,6 +419,7 @@ document.addEventListener('alpine:init', () => {
       this.units = (Array.isArray(d.units) ? d.units : []).map(cleanUnit).filter(Boolean).map(u => Object.assign(u, { wx: wxIcon(u) })).sort((a, b) => b.lv - a.lv || (b.tmd - a.tmd) || b.gust - a.gust);
       this.villages = (Array.isArray(d.villages) ? d.villages : []).slice(0, 500).map(cleanVil).filter(Boolean);
       this.tmd = (Array.isArray(d.tmd) ? d.tmd : []).slice(0, 10).map(cleanTmd).filter(Boolean);
+      this.nat = (Array.isArray(d.nat) ? d.nat : []).slice(0, 80).map(cleanNat).filter(Boolean).map(p => Object.assign(p, { wx: wxIcon(p) }));
       this.upd = str(d.upd, 30); this.at = num(d.at); this.note = str(d.note, 120); this.src = str(d.src, 120);
       this.cfg = d.cfg && typeof d.cfg === 'object' ? d.cfg : {};
       this.st = 'ok';
@@ -406,7 +457,7 @@ document.addEventListener('alpine:init', () => {
           vilLayer() { const g = L.layerGroup();
             self.villages.forEach(v => { const m = L.circleMarker([v.lat, v.lng], { radius: 4, weight: 1, color: v.tier >= 2 ? '#9C4221' : '#718096',
               fillColor: v.tier >= 2 ? '#DD6B20' : '#fff', fillOpacity: .85, dashArray: v.approx ? '2 2' : null });
-              m.on('click', () => { self.sel = null; self.selV = v; self.scrollCard(); }); m.addTo(g); });
+              m.on('click', () => { self.sel = null; self.selP = null; self.selV = v; self.scrollCard(); }); m.addTo(g); });
             return g; },
           tmdLayer() { const g = L.layerGroup(), ic = L.divIcon({ className: 'tmdpin', html: '📢', iconSize: [18, 18], iconAnchor: [-4, 18] });   // html คงที่ ไม่มีข้อมูลเซิร์ฟเวอร์
             self.units.filter(u => u.tmd).forEach(u => { const m = L.marker([u.lat, u.lng], { icon: ic, keyboard: false }); m.on('click', () => self.pick(u, false)); m.addTo(g); });
@@ -416,20 +467,56 @@ document.addEventListener('alpine:init', () => {
               ic[e] = ic[e] || L.divIcon({ className: 'wxpin', html: e, iconSize: [20, 20], iconAnchor: [10, 28] });   // เหนือวงกลมหน่วย
               const m = L.marker([u.lat, u.lng], { icon: ic[e], keyboard: false }); m.on('click', () => self.pick(u, false)); m.addTo(g); });
             return g; },
+          natLayer(n3) { const g = L.layerGroup(), ic = {};   // จุดจังหวัด: วงสีระดับ + อีโมจิจากตาราง wxIcon (ไม่มีข้อความเซิร์ฟเวอร์ใน html)
+            self.nat.filter(p => p.n3 === n3).forEach(p => {
+              const c = L.circleMarker([p.lat, p.lng], { radius: 6 + p.lv * 2, color: p.tmd ? '#9C4221' : '#fff', weight: p.tmd ? 3 : 2, fillColor: self.color(p.lv), fillOpacity: .85 });
+              c.on('click', () => self.pickP(p, false)); c.addTo(g);
+              const e = self.wxOf(p).i; if (!e) return;
+              ic[e] = ic[e] || L.divIcon({ className: 'natpin', html: e, iconSize: [18, 18], iconAnchor: [9, 24] });
+              const m = L.marker([p.lat, p.lng], { icon: ic[e], keyboard: false }); m.on('click', () => self.pickP(p, false)); m.addTo(g); });
+            return g; },
           meLayer() { return L.layerGroup(); }
         };
         LAYERS.forEach(l => { const lay = l.build(ctx); groups[l.id] = lay; if (l.on) lay.addTo(map); });
-        const fit = () => { map.invalidateSize(); if (this.units.length) map.fitBounds(L.latLngBounds(this.units.map(u => [u.lat, u.lng])).pad(0.08)); };
+        const fit = () => { map.invalidateSize();
+          if (this.nat.length) { map.fitBounds(L.latLngBounds(this.nat.map(p => [p.lat, p.lng])).pad(0.05)); this.applyZoom(); }   // เปิดมาเห็นทั้งประเทศ
+          else if (this.units.length) map.fitBounds(L.latLngBounds(this.units.map(u => [u.lat, u.lng])).pad(0.08)); };
+        map.on('zoomend', () => this.applyZoom());
         setTimeout(fit, 80);   // รอให้กล่องแผนที่มีขนาดจริงก่อน (เพิ่งเปลี่ยนจากซ่อนเป็นแสดง)
         window.addEventListener('resize', () => map.invalidateSize());
       } catch (e) { console.error(e); this.mapOk = false; }
     },
     toggle(id) {
       const t = this.toggles.find(x => x.id === id); if (!t) return; t.on = !t.on;
+      if (this.nat.length) return this.applyZoom();
       if (map && groups[id]) { if (t.on) groups[id].addTo(map); else map.removeLayer(groups[id]); }
     },
+    // ซูมต่ำ = จุดจังหวัดทั้งประเทศ · ซูมสูง = รายหน่วย กฟน.3 (+ จุดจังหวัดนอก กฟน.3) · ไม่มี nat = ทำงานแบบเดิม
+    applyZoom() {
+      if (!map || !this.nat.length) return;
+      const det = map.getZoom() >= DETAIL_Z; this.det = det;
+      const on = (id, v) => { const g = groups[id]; if (!g) return; if (v) { if (!map.hasLayer(g)) g.addTo(map); } else if (map.hasLayer(g)) map.removeLayer(g); };
+      const tg = id => { const t = this.toggles.find(x => x.id === id); return !t || t.on; };
+      on('unit', det); on('tmd', det); on('vil', det && tg('vil')); on('wxi', det && tg('wxi'));
+      on('natOut', true); on('natN3', !det);
+    },
+    goView() {
+      if (!map) return;
+      if (this.det && this.nat.length) map.fitBounds(L.latLngBounds(this.nat.map(p => [p.lat, p.lng])).pad(0.05));
+      else if (this.units.length) map.fitBounds(L.latLngBounds(this.units.map(u => [u.lat, u.lng])).pad(0.08));
+    },
+    zoomProv(pv) {
+      const us = this.units.filter(u => u.prov === pv); if (!map || !us.length) return;
+      this.selP = null; map.fitBounds(L.latLngBounds(us.map(u => [u.lat, u.lng])).pad(0.15));
+      document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+    pickP(p, fly) {
+      this.sel = null; this.selV = null; this.selP = p;
+      if (fly && map) map.setView([p.lat, p.lng], Math.min(Math.max(map.getZoom(), 6), DETAIL_Z - 1));
+      this.scrollCard();
+    },
     pick(u, fly) {
-      this.selV = null; this.sel = u; this.vilShow = 20;
+      this.selV = null; this.selP = null; this.sel = u; this.vilShow = 20;
       this.selVil = this.villages.filter(v => v.u === u.u).sort((a, b) => b.tier - a.tier || b.pop - a.pop);
       if (fly && map) map.setView([u.lat, u.lng], Math.max(map.getZoom(), 11));
       this.scrollCard();
