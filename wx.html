@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<title>แผนที่อากาศ N3</title>
+<!--
+  แผนที่อากาศ กฟน.3 (I-33 · สเปก claude/spec-I33-wx-map.md "ปรับ 20/11") · เจ้าของ: แชตพื้นที่/อากาศ
+  LIFF app แยกของตัวเอง ("แผนที่อากาศ N3" · channel LINE Login เดิม 2012356608) · ไม่พึ่งไฟล์/สคริปต์ของ index.html
+  ข้อมูล: POST {action:'liffPhonebook', idToken, op:'wxmap'} → บอท public (20_Liff liffWxMap_ → 50_Weather wxUnits_ · แคชรายชั่วโมง)
+  F2: Leaflet 1.9.4 + Alpine 3.17.5 จาก cdnjs ล็อกเวอร์ชัน + SRI · ข้อความจากเซิร์ฟเวอร์แสดงด้วย x-text / textContent เท่านั้น (ไม่มี innerHTML / x-html / popup HTML)
+  📍 ตำแหน่งฉัน: ขอสิทธิ์เมื่อกดปุ่มเท่านั้น · คำนวณในเครื่อง · ไม่ส่งพิกัดออกไปที่ไหน
+  เพิ่มชั้นข้อมูล (เช่น ArcGIS/esri-leaflet ภายหลัง) = เพิ่มรายการในตาราง LAYERS จุดเดียว
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://script.google.com">
+<link rel="preconnect" href="https://script.googleusercontent.com">
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" integrity="sha512-Zcn6bjR/8RZbLEpLIeOwNtzREBAJnUKESxces60Mpoj+2okopSAcSUIUOseddDm0cxnGQzxIR7vJgsLZbdLE3w==" crossorigin="anonymous" referrerpolicy="no-referrer">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" integrity="sha512-BwHfrr4c9kmRkLw6iXFdzcdWV/PGkVgiIyIWLLlTSXzWQzxuSg4DiQUCpauz/EWjgk5TYQqX/kvn9pG1NpYfqg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js" charset="utf-8"></script>
+<style>
+  :root { --p:#5C1668; --p2:#7A288A; --g:#F4B41A; --ink:#2B0A33; --mut:#7d6f82; --bg:#F6F1F8; --card:#fff; --line:#eadff0; --soft:#F3EAF6;
+          --l0:#38A169; --l1:#D69E2E; --l2:#DD6B20; --l3:#C53030; --me:#2B6CB0; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Anuphan', system-ui, sans-serif; }
+  [x-cloak] { display: none !important; }
+  header { position: sticky; top: 0; z-index: 1000; background: var(--p); color: #fff; padding: 10px 14px; box-shadow: 0 2px 8px rgba(60,10,70,.25); }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  h1 { margin: 0; font-size: 17px; font-weight: 700; }
+  .sub { font-size: 12px; color: #f2dff6; margin-top: 2px; }
+  .hbtn { background: rgba(255,255,255,.16); color: #fff; border: 0; border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 13px; white-space: nowrap; }
+  .stale { display: inline-block; background: var(--g); color: var(--ink); border-radius: 8px; padding: 0 6px; margin-left: 4px; font-weight: 600; }
+  .tmd { display: block; width: 100%; text-align: left; border: 0; font: inherit; background: #FFF4E5; color: #7B341E; border-bottom: 1px solid #F6D2A8; padding: 9px 14px; font-size: 13px; }
+  .tmd b { color: #9C4221; }
+  .tmdlist { background: #FFFAF2; border-bottom: 1px solid #F6D2A8; padding: 4px 14px 10px; font-size: 13px; }
+  .tmdi { padding: 8px 0; border-top: 1px dashed #F0C99A; }
+  .tmdi:first-child { border-top: 0; }
+  .tmdi .t { font-weight: 700; color: #7B341E; }
+  .tmdi .m { color: var(--mut); font-size: 12px; }
+  .tmdi .x { margin-top: 4px; white-space: pre-line; }
+  .lnk { background: none; border: 0; padding: 4px 0 0; color: var(--p2); font: inherit; font-weight: 600; text-decoration: underline; }
+  #mapwrap { position: relative; }
+  #map { height: 58vh; min-height: 300px; background: #dfe7ec; }
+  .ctrl { position: absolute; z-index: 800; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .cbtn { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13px; color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.15); text-align: left; }
+  .cbtn.on { background: var(--soft); border-color: var(--p2); font-weight: 600; }
+  .legend { position: absolute; z-index: 800; left: 10px; bottom: 22px; background: rgba(255,255,255,.94); border-radius: 10px; padding: 6px 9px; font-size: 12px; line-height: 1.6; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .near { background: #EBF4FF; color: #1A365D; padding: 9px 14px; font-size: 13px; border-bottom: 1px solid #C3DAFE; }
+  .card { background: var(--card); margin: 10px; border-radius: 14px; box-shadow: 0 1px 6px rgba(60,10,70,.12); overflow: hidden; }
+  .chd { padding: 10px 14px; color: #fff; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .chd .n { font-weight: 700; font-size: 16px; }
+  .chd .s { font-size: 12px; opacity: .92; }
+  .x { background: rgba(255,255,255,.2); border: 0; color: #fff; border-radius: 8px; width: 30px; height: 30px; font-size: 16px; }
+  .cbd { padding: 10px 14px 12px; font-size: 14px; }
+  .row { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid #f3edf5; }
+  .row:last-child { border-bottom: 0; }
+  .row .k { color: var(--mut); font-size: 13px; }
+  .row .v { font-weight: 600; text-align: right; }
+  .mgr { margin-top: 8px; background: var(--soft); border-radius: 10px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .mgr .nm { font-weight: 700; }
+  .mgr .ps { font-size: 12px; color: var(--mut); }
+  .call { background: var(--p); color: #fff; text-decoration: none; border-radius: 10px; padding: 9px 12px; font-weight: 600; white-space: nowrap; }
+  .tag { display: inline-block; border-radius: 8px; padding: 1px 7px; font-size: 12px; font-weight: 600; color: #fff; }
+  h3 { margin: 14px 14px 6px; font-size: 15px; }
+  .list { margin: 0 10px 10px; background: var(--card); border-radius: 14px; overflow: hidden; box-shadow: 0 1px 6px rgba(60,10,70,.08); }
+  .li { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; padding: 9px 12px; border-top: 1px solid #f3edf5; }
+  .li:first-child { border-top: 0; }
+  .li .nm { flex: 1; font-weight: 600; font-size: 14px; }
+  .li .pv { font-size: 12px; color: var(--mut); font-weight: 400; }
+  .li .mt { font-size: 12px; color: var(--mut); text-align: right; }
+  .more { display: block; width: calc(100% - 20px); margin: 0 10px 10px; border: 1px dashed var(--line); background: #fff; border-radius: 12px; padding: 10px; font: inherit; color: var(--p2); font-weight: 600; }
+  .foot { font-size: 11px; color: var(--mut); padding: 4px 16px 28px; line-height: 1.6; }
+  .state { text-align: center; padding: 48px 20px; color: var(--mut); }
+  .state h2 { color: var(--ink); font-size: 17px; margin: 10px 0 6px; }
+  .state .big { font-size: 40px; }
+  .btn { display: inline-block; margin-top: 16px; background: var(--p); color: #fff; text-decoration: none; border: 0; border-radius: 12px; padding: 12px 20px; font: inherit; font-weight: 600; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 2000; background: rgba(43,10,51,.92); color: #fff; padding: 9px 14px; border-radius: 10px; font-size: 13px; max-width: 90%; text-align: center; }
+  .leaflet-container { font-family: inherit; }
+  .tmdpin { font-size: 15px; line-height: 1; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+</style>
+</head>
+<body>
+<div id="boot" class="state"><div class="big">⛈</div><h2>กำลังเปิดแผนที่อากาศ…</h2><p id="bootmsg">โปรดรอสักครู่</p></div>
+
+<div x-data="wxApp" x-init="start()" x-cloak>
+  <!-- สถานะ: โหลด / ปฏิเสธ / ผิดพลาด -->
+  <template x-if="st !== 'ok'">
+    <div class="state">
+      <div class="big" x-text="stIcon"></div>
+      <h2 x-text="stTitle"></h2>
+      <p x-text="stMsg"></p>
+      <template x-if="stOa"><a class="btn" :href="stOa">➕ เพิ่มเพื่อน N3 Connect</a></template>
+      <template x-if="stRetry"><button class="btn" @click="location.reload()">ลองใหม่</button></template>
+    </div>
+  </template>
+
+  <div x-show="st === 'ok'">
+    <header>
+      <div class="top">
+        <div>
+          <h1>⛈ แผนที่อากาศ กฟน.3</h1>
+          <div class="sub"><span x-text="updText"></span><span class="stale" x-show="stale">ข้อมูลเก่า</span></div>
+        </div>
+        <button class="hbtn" x-show="inClient" @click="closeWin()">💬 กลับแชต</button>
+      </div>
+    </header>
+
+    <!-- 📢 ประกาศกรมอุตุฯ (เฟสเสริม · ขึ้นเมื่อเซิร์ฟเวอร์ส่ง tmd มา) -->
+    <template x-if="tmd.length">
+      <div>
+        <button class="tmd" @click="tmdOpen = !tmdOpen">📢 <b>ประกาศกรมอุตุฯ</b> · <span x-text="tmd[0].title"></span><span x-show="tmd.length > 1" x-text="' (+' + (tmd.length - 1) + ')'"></span> <span x-text="tmdOpen ? '▲' : '▼'"></span></button>
+        <div class="tmdlist" x-show="tmdOpen">
+          <template x-for="a in tmd" :key="a.k">
+            <div class="tmdi">
+              <div class="t" x-text="a.title"></div>
+              <div class="m" x-text="a.meta"></div>
+              <div class="x" x-text="a.text"></div>
+              <button class="lnk" x-show="a.link" @click="openExt(a.link)">อ่านฉบับเต็ม (กรมอุตุนิยมวิทยา)</button>
+            </div>
+          </template>
+        </div>
+      </div>
+    </template>
+
+    <div class="near" x-show="near" x-text="near"></div>
+
+    <div id="mapwrap" x-show="mapOk">
+      <div id="map"></div>
+      <div class="ctrl">
+        <template x-for="ly in toggles" :key="ly.id">
+          <button class="cbtn" :class="ly.on && 'on'" @click="toggle(ly.id)" x-text="(ly.on ? '☑ ' : '☐ ') + ly.label"></button>
+        </template>
+        <button class="cbtn" x-show="geoOk" @click="locate()" x-text="locBusy ? '📍 กำลังหา…' : '📍 ตำแหน่งฉัน'"></button>
+      </div>
+      <div class="legend">
+        <div><span class="dot" style="background:var(--l3)"></span>เสี่ยงสูง</div>
+        <div><span class="dot" style="background:var(--l2)"></span>เตรียมพร้อม</div>
+        <div><span class="dot" style="background:var(--l1)"></span>เฝ้าระวัง</div>
+        <div><span class="dot" style="background:var(--l0)"></span>ปกติ</div>
+        <div><span class="dot" style="background:#DD6B20;width:7px;height:7px"></span>หมู่บ้านเสี่ยง</div>
+      </div>
+    </div>
+    <div class="near" x-show="!mapOk" style="background:#FFF5F5;color:#742A2A;border-color:#FED7D7">แผนที่โหลดไม่สำเร็จ · แสดงเป็นรายการแทน</div>
+
+    <!-- การ์ดหน่วยที่เลือก -->
+    <template x-if="sel">
+      <div class="card" id="selcard">
+        <div class="chd" :style="'background:' + color(sel.lv)">
+          <div>
+            <div class="n" x-text="lvIcon(sel.lv) + ' ' + sel.u"></div>
+            <div class="s" x-text="lvName(sel.lv) + (sel.prov ? ' · จ.' + sel.prov : '')"></div>
+          </div>
+          <button class="x" @click="sel = null" aria-label="ปิด">✕</button>
+        </div>
+        <div class="cbd">
+          <div class="row" x-show="sel.tmd"><span class="k">ประกาศกรมอุตุฯ</span><span class="v">📢 จังหวัดนี้อยู่ในประกาศ</span></div>
+          <div class="row"><span class="k">ช่วงเวลาคาด</span><span class="v" x-text="sel.win || '-'"></span></div>
+          <div class="row"><span class="k">ลมกระโชกสูงสุด</span><span class="v" x-text="sel.gust + ' กม./ชม.'"></span></div>
+          <div class="row"><span class="k">ฝน 1 ชม. / 3 ชม.</span><span class="v" x-text="sel.rain1h + ' / ' + sel.rain3h + ' มม.'"></span></div>
+          <div class="row"><span class="k">ฝน 1–3 ชม. ข้างหน้า</span><span class="v" x-text="sel.rainNear + ' มม./ชม.'"></span></div>
+          <div class="row" x-show="sel.ts"><span class="k">สัญญาณ</span><span class="v">⛈ พายุฝนฟ้าคะนอง</span></div>
+          <div class="row" x-show="sel.vil"><span class="k">พื้นที่เสี่ยงน้ำ 🟠</span><span class="v" x-text="'~' + fmt(sel.pop) + ' คน / ' + fmt(sel.vil) + ' หมู่บ้าน'"></span></div>
+          <div class="row" x-show="sel.vilH"><span class="k">หมู่บ้านเคยท่วม ⚪</span><span class="v" x-text="fmt(sel.vilH) + ' หมู่บ้าน'"></span></div>
+          <template x-if="sel.mgr">
+            <div class="mgr">
+              <div><div class="nm" x-text="sel.mgr.name"></div><div class="ps" x-text="sel.mgr.pos + (sel.mgr.st ? ' · ' + sel.mgr.st : '')"></div></div>
+              <a class="call" x-show="tel(sel.mgr.mobile)" :href="'tel:' + tel(sel.mgr.mobile)">📞 โทร</a>
+            </div>
+          </template>
+          <template x-if="selVil.length">
+            <div style="margin-top:10px">
+              <div class="k" style="color:var(--mut);font-size:13px;margin-bottom:4px" x-text="'หมู่บ้านเสี่ยงในหน่วยนี้ (' + selVil.length + ')'"></div>
+              <template x-for="v in selVil.slice(0, vilShow)" :key="v.k">
+                <div class="row"><span x-text="(v.tier >= 2 ? '🟠 ' : '⚪ ') + v.n + (v.approx ? ' (พิกัดประมาณ)' : '')"></span><span class="v" x-text="v.pop ? fmt(v.pop) + ' คน' : ''"></span></div>
+              </template>
+              <button class="lnk" x-show="selVil.length > vilShow" @click="vilShow += 20">ดูเพิ่ม</button>
+            </div>
+          </template>
+        </div>
+      </div>
+    </template>
+
+    <!-- การ์ดหมู่บ้านที่แตะ -->
+    <template x-if="selV">
+      <div class="card">
+        <div class="chd" :style="'background:' + (selV.tier >= 2 ? 'var(--l2)' : '#718096')">
+          <div><div class="n" x-text="selV.n"></div><div class="s" x-text="(selV.tier >= 2 ? '🟠 สัญญาณฝน + ริมน้ำ/เคยท่วม' : '⚪ เคยท่วม (อ้างอิง)') + ' · ' + selV.u"></div></div>
+          <button class="x" @click="selV = null" aria-label="ปิด">✕</button>
+        </div>
+        <div class="cbd">
+          <div class="row"><span class="k">ประชากร</span><span class="v" x-text="selV.pop ? fmt(selV.pop) + ' คน' : '-'"></span></div>
+          <div class="row" x-show="selV.approx"><span class="k">พิกัด</span><span class="v">ค่าประมาณ</span></div>
+        </div>
+      </div>
+    </template>
+
+    <template x-if="!units.length">
+      <div class="state"><div class="big">🌤</div><h2>ยังไม่มีข้อมูล</h2><p>ระบบอัปเดตอากาศทุก 1 ชั่วโมง ลองเปิดใหม่อีกครั้งภายหลัง</p></div>
+    </template>
+
+    <template x-if="units.length">
+      <div>
+        <h3 x-text="'รายหน่วย · ' + summary"></h3>
+        <div class="list">
+          <template x-for="u in units.slice(0, listShow)" :key="u.k">
+            <button class="li" @click="pick(u, true)">
+              <span class="dot" :style="'background:' + color(u.lv)"></span>
+              <span class="nm"><span x-text="(u.tmd ? '📢 ' : '') + u.u"></span> <span class="pv" x-text="u.prov"></span></span>
+              <span class="mt" x-text="u.lv ? (u.win || lvName(u.lv)) : 'ปกติ'"></span>
+            </button>
+          </template>
+        </div>
+        <button class="more" x-show="units.length > listShow" @click="listShow = units.length" x-text="'แสดงทั้งหมด ' + units.length + ' หน่วย'"></button>
+      </div>
+    </template>
+
+    <div class="foot">
+      <div x-text="note"></div>
+      <div x-text="crit"></div>
+      <div x-text="'ที่มา: ' + (src || 'Open-Meteo') + ' · แผนที่ © OpenStreetMap contributors'"></div>
+      <div>ไม่ใช่ระบบสั่งการทางการของ กฟภ. · ตำแหน่งของคุณไม่ถูกส่งออกจากเครื่อง</div>
+    </div>
+  </div>
+
+  <div class="toast" x-show="toastMsg" x-text="toastMsg"></div>
+</div>
+
+<script>
+'use strict';
+// ---------- ตั้งค่า (แก้ที่นี่ที่เดียว) ----------
+const LIFF_ID = '2012356608-orWWt1xY';   // LIFF app "แผนที่อากาศ N3" (channel 2012356608)
+const API_URL = 'https://script.google.com/macros/s/AKfycbzRRsudr5IUzUZR3942N00S2v_n3wlTqi0zXl_LnZrbC9_YmcOr9s0Db_XTfaCJ5kfO/exec';   // web app บอท public (เดียวกับสมุดโทร)
+const BASEMAP = { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom: 18,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' };   // เปลี่ยนผู้ให้บริการแผนที่ฐานที่นี่
+const CENTER = [15.4, 100.4], ZOOM = 8;   // กลาง กฟน.3 (ก่อนรู้ขอบเขตหน่วย)
+const STALE_MS = 3 * 3600e3;
+const LV = [
+  { name: 'ปกติ', icon: '🟢', color: '#38A169' },
+  { name: 'เฝ้าระวัง', icon: '🟡', color: '#D69E2E' },
+  { name: 'เตรียมพร้อม', icon: '🟠', color: '#DD6B20' },
+  { name: 'เสี่ยงสูง', icon: '🔴', color: '#C53030' }];
+// ชั้นข้อมูลทั้งหมด (ลำดับ = ลำดับวาด) · toggle:true = มีปุ่มเปิด/ปิด · build(ctx) คืน L.Layer
+// เพิ่มชั้น ArcGIS ภายหลัง: { id:'arc', label:'…', toggle:true, on:false, build: ctx => L.esri.featureLayer({...}) } (ห้ามฝัง token องค์กร)
+const LAYERS = [
+  { id: 'vil', label: 'หมู่บ้านเสี่ยง', toggle: true, on: true, build: ctx => ctx.vilLayer() },
+  { id: 'unit', label: 'หน่วย', toggle: false, on: true, build: ctx => ctx.unitLayer() },
+  { id: 'tmd', label: 'ประกาศกรมอุตุฯ', toggle: false, on: true, build: ctx => ctx.tmdLayer() },
+  { id: 'me', label: 'ตำแหน่งฉัน', toggle: false, on: true, build: ctx => ctx.meLayer() }];
+
+// ---------- ตัวช่วย ----------
+const T0 = Date.now();
+const num = v => { const x = Number(v); return isFinite(x) ? x : 0; };
+const str = (v, n) => String(v == null ? '' : v).slice(0, n || 200);
+const fmt = n => num(n).toLocaleString('en-US');
+const httpsOnly = u => /^https:\/\/[^\s"'<>]+$/.test(String(u || '')) ? String(u) : '';
+const distKm = (a, b, c, d) => { const R = 6371, r = Math.PI / 180, x = (c - a) * r, y = (d - b) * r;
+  const h = Math.sin(x / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin(y / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+function bootFail(msg) { const b = document.getElementById('boot'); if (b && !b.hidden) document.getElementById('bootmsg').textContent = msg; }
+setTimeout(() => { if (!window.Alpine) bootFail('โหลดหน้าเว็บไม่สำเร็จ · ตรวจสอบอินเทอร์เน็ตแล้วเปิดใหม่อีกครั้ง'); }, 12000);
+
+// ทำความสะอาดข้อมูลจากเซิร์ฟเวอร์อีกชั้น (ชนิด/ความยาว) ก่อนใช้
+function cleanUnit(u, i) {
+  const lat = Number(u.lat), lng = Number(u.lng);
+  if (!isFinite(lat) || !isFinite(lng) || !u.u) return null;
+  const m = u.mgr && typeof u.mgr === 'object' ? { name: str(u.mgr.name, 80), pos: str(u.mgr.pos, 80), mobile: str(u.mgr.mobile, 40), st: str(u.mgr.st, 40) } : null;
+  return { k: 'u' + i, u: str(u.u, 60), prov: str(u.prov, 40), lat, lng, lv: Math.max(0, Math.min(3, Math.floor(num(u.lv)))),
+    gust: num(u.gust), rain1h: num(u.rain1h), rain3h: num(u.rain3h), rainNear: num(u.rainNear), ts: !!u.ts, cape: num(u.cape),
+    win: str(u.win, 30), vil: num(u.vil), pop: num(u.pop), vilH: num(u.vilH), tmd: !!u.tmd, mgr: m && m.name ? m : null };
+}
+function cleanVil(v, i) {
+  const lat = Number(v.lat), lng = Number(v.lng);
+  if (!isFinite(lat) || !isFinite(lng)) return null;
+  return { k: 'v' + i, n: str(v.n, 80), u: str(v.u, 60), lat, lng, pop: num(v.pop), tier: Math.max(0, Math.min(3, Math.floor(num(v.tier)))), approx: !!v.approx };
+}
+function cleanTmd(a, i) {
+  if (!a || !a.title) return null;
+  const pub = str(a.pub, 40), exp = str(a.exp, 40), provs = Array.isArray(a.provs) ? a.provs.slice(0, 12).map(p => str(p, 30)) : [];
+  const meta = [pub && 'ออก ' + pub, exp && 'ถึง ' + exp, provs.length ? 'จ.' + provs.join(' ') : (a.area ? str(a.area, 120) : '')].filter(Boolean).join(' · ');
+  return { k: 't' + i, title: str(a.title, 120), text: str(a.text, 300), link: /^https:\/\/www\.tmd\.go\.th\//.test(String(a.link || '')) ? String(a.link) : '', meta };
+}
+
+document.addEventListener('alpine:init', () => {
+  let map = null, groups = {}, meMarker = null, unitMarks = [];
+  Alpine.data('wxApp', () => ({
+    st: 'load', stIcon: '⛈', stTitle: 'กำลังเปิดแผนที่อากาศ…', stMsg: 'โปรดรอสักครู่', stOa: '', stRetry: false,
+    inClient: false, mapOk: true, geoOk: !!navigator.geolocation, locBusy: false,
+    units: [], villages: [], tmd: [], tmdOpen: false, upd: '', at: 0, note: '', src: '', cfg: {},
+    sel: null, selV: null, selVil: [], vilShow: 20, listShow: 15, near: '', toastMsg: '', toggles: LAYERS.filter(l => l.toggle).map(l => ({ id: l.id, label: l.label, on: l.on })),
+
+    get stale() { return this.at && Date.now() - this.at > STALE_MS; },
+    get updText() { return this.upd ? 'อัปเดต ' + this.upd + ' · พยากรณ์จากโมเดล' : 'พยากรณ์จากโมเดล'; },
+    get summary() { const c = [0, 0, 0, 0]; this.units.forEach(u => c[u.lv]++); return '🔴 ' + c[3] + ' · 🟠 ' + c[2] + ' · 🟡 ' + c[1] + ' · ปกติ ' + c[0]; },
+    get crit() { const c = this.cfg; if (!c || c.g1 == null) return '';
+      return 'เกณฑ์ (ไม่ใช่เกณฑ์ทางการ): 🟡 ลม≥' + c.g1 + ' กม./ชม. หรือฝน≥' + c.r1 + ' มม./ชม. หรือฟ้าคะนอง · 🟠 ลม≥' + c.g2 +
+        ' หรือฝน 3 ชม.≥' + c.r3 + ' มม. หรือฟ้าคะนอง+CAPE≥' + c.cape + ' · 🔴 ลม≥' + c.g3 + ' · มองล่วงหน้า ' + (c.hours || 6) + ' ชม.'; },
+    color(lv) { return (LV[lv] || LV[0]).color; },
+    lvName(lv) { return (LV[lv] || LV[0]).name; },
+    lvIcon(lv) { return (LV[lv] || LV[0]).icon; },
+    fmt,
+    tel(m) { const d = String(m || '').replace(/[^\d+]/g, ''); return /^\+?\d{9,12}$/.test(d) ? d : ''; },
+    toast(t) { this.toastMsg = t; clearTimeout(this._tt); this._tt = setTimeout(() => this.toastMsg = '', 2600); },
+    fail(icon, title, msg, retry, oa) { this.st = 'err'; this.stIcon = icon; this.stTitle = title; this.stMsg = msg; this.stRetry = !!retry; this.stOa = httpsOnly(oa); },
+
+    async start() {
+      const boot = document.getElementById('boot'); if (boot) boot.hidden = true;
+      try {
+        if (typeof liff === 'undefined') return this.fail('⚠️', 'เปิดไม่สำเร็จ', 'โหลดระบบ LINE ไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่', true);
+        await liff.init({ liffId: LIFF_ID });
+        this.inClient = !!(liff.isInClient && liff.isInClient());
+        if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+        const token = liff.getIDToken();
+        if (!token) return this.fail('🔒', 'เข้าสู่ระบบไม่สำเร็จ', 'ลองปิดหน้านี้แล้วเปิดใหม่จากเมนู N3 Connect');
+        const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'liffPhonebook', idToken: token, op: 'wxmap' }) });
+        const d = await r.json();
+        if (!d || !d.ok) return this.denied(d || {});
+        this.apply(d);
+        console.log('[N3WX] โหลด ' + ((Date.now() - T0) / 1000).toFixed(1) + ' วิ · ' + this.units.length + ' หน่วย · ' + this.villages.length + ' หมู่บ้าน');
+      } catch (e) {
+        console.error(e);
+        this.fail('⚠️', 'เปิดแผนที่ไม่สำเร็จ', 'ตรวจสอบอินเทอร์เน็ต แล้วลองใหม่อีกครั้ง', true);
+      }
+    },
+    denied(d) {
+      if (d.error === 'not_friend') return this.fail('🔒', 'ใช้ได้เฉพาะเพื่อนของ N3 Connect', 'เพิ่มเพื่อน LINE "N3 Connect" (และลงทะเบียนถ้าระบบขอ) แล้วเปิดหน้านี้ใหม่อีกครั้ง', false, d.oa);
+      if (d.error === 'bad_token' || d.error === 'no_token') return this.fail('🔒', 'การเข้าสู่ระบบหมดอายุ', 'ปิดหน้านี้แล้วเปิดใหม่จากเมนู N3 Connect', true);
+      if (d.error === 'slow_down') return this.fail('⏳', 'เปิดถี่เกินไป', 'รอสักครู่แล้วลองใหม่', true);
+      if (d.error === 'not_available') return this.fail('ℹ️', 'ยังไม่เปิดใช้', 'แผนที่อากาศใช้ผ่านบอท N3 Connect');
+      return this.fail('⚠️', 'เปิดแผนที่ไม่สำเร็จ', 'ระบบขัดข้องชั่วคราว ลองใหม่อีกครั้ง', true);
+    },
+    apply(d) {
+      this.units = (Array.isArray(d.units) ? d.units : []).map(cleanUnit).filter(Boolean).sort((a, b) => b.lv - a.lv || (b.tmd - a.tmd) || b.gust - a.gust);
+      this.villages = (Array.isArray(d.villages) ? d.villages : []).slice(0, 500).map(cleanVil).filter(Boolean);
+      this.tmd = (Array.isArray(d.tmd) ? d.tmd : []).slice(0, 10).map(cleanTmd).filter(Boolean);
+      this.upd = str(d.upd, 30); this.at = num(d.at); this.note = str(d.note, 120); this.src = str(d.src, 120);
+      this.cfg = d.cfg && typeof d.cfg === 'object' ? d.cfg : {};
+      this.st = 'ok';
+      this.$nextTick(() => this.drawMap());
+    },
+
+    // ---------- แผนที่ ----------
+    drawMap() {
+      if (typeof L === 'undefined' || !document.getElementById('map')) { this.mapOk = false; return; }
+      try {
+        map = L.map('map', { preferCanvas: true, zoomControl: true, attributionControl: true }).setView(CENTER, ZOOM);
+        L.tileLayer(BASEMAP.url, { maxZoom: BASEMAP.maxZoom, attribution: BASEMAP.attribution }).addTo(map);
+        const self = this;
+        const ctx = {
+          unitLayer() { const g = L.layerGroup(); unitMarks = [];
+            self.units.slice().reverse().forEach(u => {   // วาดระดับต่ำก่อน ระดับสูงทับข้างบน
+              const m = L.circleMarker([u.lat, u.lng], { radius: 7 + u.lv * 3, color: '#fff', weight: 2, fillColor: self.color(u.lv), fillOpacity: .9 });
+              m.on('click', () => self.pick(u, false)); m.addTo(g); unitMarks.push([u.k, m]); });
+            return g; },
+          vilLayer() { const g = L.layerGroup();
+            self.villages.forEach(v => { const m = L.circleMarker([v.lat, v.lng], { radius: 4, weight: 1, color: v.tier >= 2 ? '#9C4221' : '#718096',
+              fillColor: v.tier >= 2 ? '#DD6B20' : '#fff', fillOpacity: .85, dashArray: v.approx ? '2 2' : null });
+              m.on('click', () => { self.sel = null; self.selV = v; self.scrollCard(); }); m.addTo(g); });
+            return g; },
+          tmdLayer() { const g = L.layerGroup(), ic = L.divIcon({ className: 'tmdpin', html: '📢', iconSize: [18, 18], iconAnchor: [-4, 18] });   // html คงที่ ไม่มีข้อมูลเซิร์ฟเวอร์
+            self.units.filter(u => u.tmd).forEach(u => { const m = L.marker([u.lat, u.lng], { icon: ic, keyboard: false }); m.on('click', () => self.pick(u, false)); m.addTo(g); });
+            return g; },
+          meLayer() { return L.layerGroup(); }
+        };
+        LAYERS.forEach(l => { const lay = l.build(ctx); groups[l.id] = lay; if (l.on) lay.addTo(map); });
+        const fit = () => { map.invalidateSize(); if (this.units.length) map.fitBounds(L.latLngBounds(this.units.map(u => [u.lat, u.lng])).pad(0.08)); };
+        setTimeout(fit, 80);   // รอให้กล่องแผนที่มีขนาดจริงก่อน (เพิ่งเปลี่ยนจากซ่อนเป็นแสดง)
+        window.addEventListener('resize', () => map.invalidateSize());
+      } catch (e) { console.error(e); this.mapOk = false; }
+    },
+    toggle(id) {
+      const t = this.toggles.find(x => x.id === id); if (!t) return; t.on = !t.on;
+      if (map && groups[id]) { if (t.on) groups[id].addTo(map); else map.removeLayer(groups[id]); }
+    },
+    pick(u, fly) {
+      this.selV = null; this.sel = u; this.vilShow = 20;
+      this.selVil = this.villages.filter(v => v.u === u.u).sort((a, b) => b.tier - a.tier || b.pop - a.pop);
+      if (fly && map) map.setView([u.lat, u.lng], Math.max(map.getZoom(), 11));
+      this.scrollCard();
+    },
+    scrollCard() { this.$nextTick(() => { const c = document.querySelector('.card'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }); },
+
+    // ---------- 📍 ตำแหน่งฉัน (คำนวณในเครื่องเท่านั้น · ไม่ส่งพิกัดไปไหน) ----------
+    locate() {
+      if (!navigator.geolocation || this.locBusy) return;
+      this.locBusy = true;
+      navigator.geolocation.getCurrentPosition(p => {
+        this.locBusy = false;
+        const la = p.coords.latitude, ln = p.coords.longitude;
+        if (map) { if (meMarker) groups.me.removeLayer(meMarker);
+          meMarker = L.circleMarker([la, ln], { radius: 8, color: '#fff', weight: 3, fillColor: '#2B6CB0', fillOpacity: 1 }).addTo(groups.me);
+          map.setView([la, ln], Math.max(map.getZoom(), 11)); }
+        let best = null, bd = 1e9; this.units.forEach(u => { const k = distKm(la, ln, u.lat, u.lng); if (k < bd) { bd = k; best = u; } });
+        if (!best) return;
+        this.near = '📍 ใกล้ ' + best.u + ' (' + bd.toFixed(1) + ' กม.) · ' + this.lvIcon(best.lv) + ' ' + this.lvName(best.lv) +
+          ' · ฝน 1–3 ชม. ข้างหน้า ' + best.rainNear + ' มม./ชม.' + (best.win ? ' · ช่วง ' + best.win : '');
+        this.pick(best, false);
+      }, () => { this.locBusy = false; this.toast('ไม่ได้รับสิทธิ์ตำแหน่ง · เลือกหน่วยจากรายการด้านล่างแทน'); },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
+    },
+
+    openExt(u) { const url = httpsOnly(u); if (!url) return; try { liff.openWindow({ url, external: true }); } catch (e) { location.href = url; } },
+    closeWin() { try { liff.closeWindow(); } catch (e) {} }
+  }));
+});
+</script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.17.5/cdn.min.js" integrity="sha512-6KnFhHgmSX+kDsTz55gSTvN6Q7LnjIregXoc1Tz/wvv2TLjJQ41zneZbAiHogivc0Q71Tv1OLxK9GDRjZQyscQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</body>
+</html>
