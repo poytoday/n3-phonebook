@@ -39,7 +39,7 @@
   .tmdi:first-child { border-top: 0; }
   .tmdi .t { font-weight: 700; color: #7B341E; }
   .tmdi .m { color: var(--mut); font-size: 12px; }
-  .tmdi .x { margin-top: 4px; white-space: pre-line; }
+  .tmdi .tx { margin-top: 4px; white-space: pre-line; }
   .lnk { background: none; border: 0; padding: 4px 0 0; color: var(--p2); font: inherit; font-weight: 600; text-decoration: underline; }
   #mapwrap { position: relative; }
   #map { height: 58vh; min-height: 300px; background: #dfe7ec; }
@@ -79,6 +79,11 @@
   .btn { display: inline-block; margin-top: 16px; background: var(--p); color: #fff; text-decoration: none; border: 0; border-radius: 12px; padding: 12px 20px; font: inherit; font-weight: 600; }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 2000; background: rgba(43,10,51,.92); color: #fff; padding: 9px 14px; border-radius: 10px; font-size: 13px; max-width: 90%; text-align: center; }
   .leaflet-container { font-family: inherit; }
+  .wxm { display: block; width: 100%; text-align: left; border: 0; font: inherit; background: #EBF4FF; color: #1A365D; border-bottom: 1px solid #C3DAFE; padding: 9px 14px; font-size: 13px; }
+  .wxm .wt { font-weight: 700; }
+  .wxm .wx { margin-top: 3px; white-space: pre-line; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+  .wxm.open .wx { display: block; -webkit-line-clamp: unset; }
+  .wxm .wm { margin-top: 4px; color: var(--mut); font-size: 12px; }
   .tmdpin { font-size: 15px; line-height: 1; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
 </style>
 </head>
@@ -117,12 +122,21 @@
             <div class="tmdi">
               <div class="t" x-text="a.title"></div>
               <div class="m" x-text="a.meta"></div>
-              <div class="x" x-text="a.text"></div>
+              <div class="tx" x-text="a.text"></div>
               <button class="lnk" x-show="a.link" @click="openExt(a.link)">อ่านฉบับเต็ม (กรมอุตุนิยมวิทยา)</button>
             </div>
           </template>
         </div>
       </div>
+    </template>
+
+    <!-- 🌤 อากาศเช้านี้ (ลำดับ L · จาก op:'stories' เรื่อง wx-yyyy-MM-dd ของวันนี้ · ไม่มี = ไม่แสดง) -->
+    <template x-if="morn">
+      <button class="wxm" :class="mornOpen && 'open'" @click="mornOpen = !mornOpen">
+        <div class="wt" x-text="'🌤 ' + morn.title"></div>
+        <div class="wx" x-text="morn.text"></div>
+        <div class="wm" x-text="'อัปเดต 06:30 · ' + (mornOpen ? 'แตะเพื่อย่อ ▲' : 'แตะเพื่ออ่านทั้งหมด ▼')"></div>
+      </button>
     </template>
 
     <div class="near" x-show="near" x-text="near"></div>
@@ -287,7 +301,7 @@ document.addEventListener('alpine:init', () => {
   Alpine.data('wxApp', () => ({
     st: 'load', stIcon: '⛈', stTitle: 'กำลังเปิดแผนที่อากาศ…', stMsg: 'โปรดรอสักครู่', stOa: '', stRetry: false,
     inClient: false, mapOk: true, geoOk: !!navigator.geolocation, locBusy: false,
-    units: [], villages: [], tmd: [], tmdOpen: false, upd: '', at: 0, note: '', src: '', cfg: {},
+    units: [], villages: [], tmd: [], tmdOpen: false, morn: null, mornOpen: false, _tok: '', upd: '', at: 0, note: '', src: '', cfg: {},
     sel: null, selV: null, selVil: [], vilShow: 20, listShow: 15, near: '', toastMsg: '', toggles: LAYERS.filter(l => l.toggle).map(l => ({ id: l.id, label: l.label, on: l.on })),
 
     get stale() { return this.at && Date.now() - this.at > STALE_MS; },
@@ -311,7 +325,7 @@ document.addEventListener('alpine:init', () => {
         await liff.init({ liffId: LIFF_ID });
         this.inClient = !!(liff.isInClient && liff.isInClient());
         if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
-        const token = liff.getIDToken();
+        const token = liff.getIDToken(); this._tok = token || '';
         if (!token) return this.fail('🔒', 'เข้าสู่ระบบไม่สำเร็จ', 'ลองปิดหน้านี้แล้วเปิดใหม่จากเมนู N3 Connect');
         const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: 'liffPhonebook', idToken: token, op: 'wxmap' }) });
@@ -338,7 +352,22 @@ document.addEventListener('alpine:init', () => {
       this.upd = str(d.upd, 30); this.at = num(d.at); this.note = str(d.note, 120); this.src = str(d.src, 120);
       this.cfg = d.cfg && typeof d.cfg === 'object' ? d.cfg : {};
       this.st = 'ok';
-      this.$nextTick(() => this.drawMap());
+      this.$nextTick(() => { this.drawMap(); setTimeout(() => this.loadMorning(), 400); });   // อากาศเช้านี้ โหลดหลังแผนที่ ไม่ถ่วงหน้าแรก
+    },
+
+    // อากาศเช้านี้: เรื่อง id wx-<วันนี้> จาก op:'stories' (สตอรี่ในสมุดโทรใช้ชุดเดียวกัน) · ไม่มี/ดึงไม่ได้/slow_down = ซ่อนเงียบๆ
+    async loadMorning() {
+      try {
+        if (!this._tok) return;
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });   // yyyy-MM-dd
+        const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'liffPhonebook', idToken: this._tok, op: 'stories' }) });
+        const d = await r.json();
+        if (!d || d.error || !Array.isArray(d.stories)) return;
+        let it = null;
+        d.stories.forEach(c => (c && Array.isArray(c.items) ? c.items : []).forEach(x => { if (!it && x && String(x.id) === 'wx-' + today && x.title) it = x; }));
+        if (it) this.morn = { title: str(it.title, 80), text: str(it.text, 300) };
+      } catch (e) { console.warn('[N3WX] อากาศเช้านี้', e); }
     },
 
     // ---------- แผนที่ ----------
