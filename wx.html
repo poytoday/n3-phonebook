@@ -84,6 +84,7 @@
   .wxm .wx { margin-top: 3px; white-space: pre-line; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
   .wxm.open .wx { display: block; -webkit-line-clamp: unset; }
   .wxm .wm { margin-top: 4px; color: var(--mut); font-size: 12px; }
+  .wxpin { font-size: 17px; line-height: 1; text-align: center; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 2px #fff; }
   .tmdpin { font-size: 15px; line-height: 1; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
 </style>
 </head>
@@ -155,6 +156,7 @@
         <div><span class="dot" style="background:var(--l1)"></span>เฝ้าระวัง</div>
         <div><span class="dot" style="background:var(--l0)"></span>ปกติ</div>
         <div><span class="dot" style="background:#DD6B20;width:7px;height:7px"></span>หมู่บ้านเสี่ยง</div>
+        <div x-show="hasWx">☀️⛅🌧⛈ อากาศ 3 ชม.</div>
       </div>
     </div>
     <div class="near" x-show="!mapOk" style="background:#FFF5F5;color:#742A2A;border-color:#FED7D7">แผนที่โหลดไม่สำเร็จ · แสดงเป็นรายการแทน</div>
@@ -170,6 +172,7 @@
           <button class="x" @click="sel = null" aria-label="ปิด">✕</button>
         </div>
         <div class="cbd">
+          <div class="row" x-show="wxOf(sel).i"><span class="k">อากาศ 3 ชม. ข้างหน้า</span><span class="v" x-text="wxOf(sel).i + ' ' + wxOf(sel).t"></span></div>
           <div class="row" x-show="sel.tmd"><span class="k">ประกาศกรมอุตุฯ</span><span class="v">📢 จังหวัดนี้อยู่ในประกาศ</span></div>
           <div class="row"><span class="k">ช่วงเวลาคาด</span><span class="v" x-text="sel.win || '-'"></span></div>
           <div class="row"><span class="k">ลมกระโชกสูงสุด</span><span class="v" x-text="sel.gust + ' กม./ชม.'"></span></div>
@@ -222,7 +225,7 @@
           <template x-for="u in units.slice(0, listShow)" :key="u.k">
             <button class="li" @click="pick(u, true)">
               <span class="dot" :style="'background:' + color(u.lv)"></span>
-              <span class="nm"><span x-text="(u.tmd ? '📢 ' : '') + u.u"></span> <span class="pv" x-text="u.prov"></span></span>
+              <span class="nm"><span x-text="(u.tmd ? '📢 ' : '') + (wxOf(u).i ? wxOf(u).i + ' ' : '') + u.u"></span> <span class="pv" x-text="u.prov"></span></span>
               <span class="mt" x-text="u.lv ? (u.win || lvName(u.lv)) : 'ปกติ'"></span>
             </button>
           </template>
@@ -258,10 +261,24 @@ const LV = [
   { name: 'เสี่ยงสูง', icon: '🔴', color: '#C53030' }];
 // ชั้นข้อมูลทั้งหมด (ลำดับ = ลำดับวาด) · toggle:true = มีปุ่มเปิด/ปิด · build(ctx) คืน L.Layer
 // เพิ่มชั้น ArcGIS ภายหลัง: { id:'arc', label:'…', toggle:true, on:false, build: ctx => L.esri.featureLayer({...}) } (ห้ามฝัง token องค์กร)
+// ไอคอนอากาศจากรหัส WMO (wc · หนักสุดใน 3 ชม. ข้างหน้า · 50_Weather v64) · ไม่มี wc = เดาจากฝน/ฟ้าคะนอง (ไม่มีข้อมูลเมฆ = ไม่มีไอคอน)
+function wxIcon(u) {
+  const w = u.wc, night = (() => { const h = Number(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok', hour: 'numeric', hour12: false })) % 24; return h >= 18 || h < 6; })();
+  if (w == null) return u.ts ? { i: '⛈', t: 'ฝนฟ้าคะนอง' } : u.rain3h >= 10 ? { i: '🌧', t: 'ฝนตก' } : (u.rain1h >= 0.5 || u.rainNear >= 0.5) ? { i: '🌦', t: 'ฝนเล็กน้อย' } : { i: '', t: '' };
+  if (w >= 95) return { i: '⛈', t: 'ฝนฟ้าคะนอง' };
+  if (w >= 80) return { i: '🌧', t: 'ฝนซู่' };
+  if (w >= 61) return { i: '🌧', t: w >= 65 ? 'ฝนตกหนัก' : 'ฝนตก' };
+  if (w >= 51) return { i: '🌦', t: 'ฝนปรอย' };
+  if (w >= 45) return { i: '🌫', t: 'หมอก' };
+  if (w >= 3) return { i: '☁️', t: 'เมฆมาก' };
+  if (w >= 1) return { i: night ? '☁️' : '⛅', t: 'มีเมฆบางส่วน' };
+  return { i: night ? '🌙' : '☀️', t: 'ท้องฟ้าแจ่มใส' };
+}
 const LAYERS = [
   { id: 'vil', label: 'หมู่บ้านเสี่ยง', toggle: true, on: true, build: ctx => ctx.vilLayer() },
   { id: 'unit', label: 'หน่วย', toggle: false, on: true, build: ctx => ctx.unitLayer() },
   { id: 'tmd', label: 'ประกาศกรมอุตุฯ', toggle: false, on: true, build: ctx => ctx.tmdLayer() },
+  { id: 'wxi', label: 'ไอคอนอากาศ', toggle: true, on: true, build: ctx => ctx.wxLayer() },
   { id: 'me', label: 'ตำแหน่งฉัน', toggle: false, on: true, build: ctx => ctx.meLayer() }];
 
 // ---------- ตัวช่วย ----------
@@ -282,7 +299,8 @@ function cleanUnit(u, i) {
   const m = u.mgr && typeof u.mgr === 'object' ? { name: str(u.mgr.name, 80), pos: str(u.mgr.pos, 80), mobile: str(u.mgr.mobile, 40), st: str(u.mgr.st, 40) } : null;
   return { k: 'u' + i, u: str(u.u, 60), prov: str(u.prov, 40), lat, lng, lv: Math.max(0, Math.min(3, Math.floor(num(u.lv)))),
     gust: num(u.gust), rain1h: num(u.rain1h), rain3h: num(u.rain3h), rainNear: num(u.rainNear), ts: !!u.ts, cape: num(u.cape),
-    win: str(u.win, 30), vil: num(u.vil), pop: num(u.pop), vilH: num(u.vilH), tmd: !!u.tmd, mgr: m && m.name ? m : null };
+    win: str(u.win, 30), vil: num(u.vil), pop: num(u.pop), vilH: num(u.vilH), tmd: !!u.tmd, mgr: m && m.name ? m : null,
+    wc: u.wc == null || !isFinite(Number(u.wc)) ? null : Math.max(0, Math.min(99, Math.round(Number(u.wc)))) };
 }
 function cleanVil(v, i) {
   const lat = Number(v.lat), lng = Number(v.lng);
@@ -313,6 +331,8 @@ document.addEventListener('alpine:init', () => {
     color(lv) { return (LV[lv] || LV[0]).color; },
     lvName(lv) { return (LV[lv] || LV[0]).name; },
     lvIcon(lv) { return (LV[lv] || LV[0]).icon; },
+    wxOf(u) { return (u && u.wx) || { i: '', t: '' }; },
+    get hasWx() { return this.units.some(u => this.wxOf(u).i); },
     fmt,
     tel(m) { const d = String(m || '').replace(/[^\d+]/g, ''); return /^\+?\d{9,12}$/.test(d) ? d : ''; },
     toast(t) { this.toastMsg = t; clearTimeout(this._tt); this._tt = setTimeout(() => this.toastMsg = '', 2600); },
@@ -346,7 +366,7 @@ document.addEventListener('alpine:init', () => {
       return this.fail('⚠️', 'เปิดแผนที่ไม่สำเร็จ', 'ระบบขัดข้องชั่วคราว ลองใหม่อีกครั้ง', true);
     },
     apply(d) {
-      this.units = (Array.isArray(d.units) ? d.units : []).map(cleanUnit).filter(Boolean).sort((a, b) => b.lv - a.lv || (b.tmd - a.tmd) || b.gust - a.gust);
+      this.units = (Array.isArray(d.units) ? d.units : []).map(cleanUnit).filter(Boolean).map(u => Object.assign(u, { wx: wxIcon(u) })).sort((a, b) => b.lv - a.lv || (b.tmd - a.tmd) || b.gust - a.gust);
       this.villages = (Array.isArray(d.villages) ? d.villages : []).slice(0, 500).map(cleanVil).filter(Boolean);
       this.tmd = (Array.isArray(d.tmd) ? d.tmd : []).slice(0, 10).map(cleanTmd).filter(Boolean);
       this.upd = str(d.upd, 30); this.at = num(d.at); this.note = str(d.note, 120); this.src = str(d.src, 120);
@@ -390,6 +410,11 @@ document.addEventListener('alpine:init', () => {
             return g; },
           tmdLayer() { const g = L.layerGroup(), ic = L.divIcon({ className: 'tmdpin', html: '📢', iconSize: [18, 18], iconAnchor: [-4, 18] });   // html คงที่ ไม่มีข้อมูลเซิร์ฟเวอร์
             self.units.filter(u => u.tmd).forEach(u => { const m = L.marker([u.lat, u.lng], { icon: ic, keyboard: false }); m.on('click', () => self.pick(u, false)); m.addTo(g); });
+            return g; },
+          wxLayer() { const g = L.layerGroup(), ic = {};   // html = อีโมจิจากตาราง wxIcon เท่านั้น (ไม่มีข้อความเซิร์ฟเวอร์)
+            self.units.forEach(u => { const e = self.wxOf(u).i; if (!e) return;
+              ic[e] = ic[e] || L.divIcon({ className: 'wxpin', html: e, iconSize: [20, 20], iconAnchor: [10, 28] });   // เหนือวงกลมหน่วย
+              const m = L.marker([u.lat, u.lng], { icon: ic[e], keyboard: false }); m.on('click', () => self.pick(u, false)); m.addTo(g); });
             return g; },
           meLayer() { return L.layerGroup(); }
         };
