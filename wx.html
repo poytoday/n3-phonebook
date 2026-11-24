@@ -34,6 +34,12 @@
   .stale { display: inline-block; background: var(--g); color: var(--ink); border-radius: 8px; padding: 0 6px; margin-left: 4px; font-weight: 600; }
   .tmd { display: block; width: 100%; text-align: left; border: 0; font: inherit; background: #FFF4E5; color: #7B341E; border-bottom: 1px solid #F6D2A8; padding: 9px 14px; font-size: 13px; }
   .tmd b { color: #9C4221; }
+  .tmd.hot { background: #C05621; color: #fff; font-size: 14px; padding: 10px 14px; border-bottom: 0; }
+  .tmd.hot b { color: #fff; }
+  .tmd .hint { display: block; font-size: 12px; opacity: .9; margin-top: 2px; }
+  .tmdpv { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0 6px; }
+  .tmdpv button { border: 1px solid #F0C99A; background: #fff; color: #7B341E; border-radius: 14px; padding: 4px 10px; font: inherit; font-size: 13px; }
+  .tmdh { font-weight: 700; color: #7B341E; padding-top: 8px; }
   .tmdlist { background: #FFFAF2; border-bottom: 1px solid #F6D2A8; padding: 4px 14px 10px; font-size: 13px; }
   .tmdi { padding: 8px 0; border-top: 1px dashed #F0C99A; }
   .tmdi:first-child { border-top: 0; }
@@ -86,6 +92,8 @@
   .wxm .wm { margin-top: 4px; color: var(--mut); font-size: 12px; }
   .wxpin { font-size: 17px; line-height: 1; text-align: center; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 2px #fff; }
   .natpin { font-size: 15px; line-height: 1; text-align: center; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+  .zlbl span { display: inline-block; white-space: nowrap; color: #fff; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 9px; box-shadow: 0 0 0 1.5px #fff; opacity: .92; }
+  .zsw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 2px; vertical-align: middle; }
   .tmdpin { font-size: 15px; line-height: 1; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
 </style>
 </head>
@@ -115,11 +123,23 @@
       </div>
     </header>
 
-    <!-- 📢 ประกาศกรมอุตุฯ (เฟสเสริม · ขึ้นเมื่อเซิร์ฟเวอร์ส่ง tmd มา) -->
-    <template x-if="tmd.length">
-      <div>
-        <button class="tmd" @click="tmdOpen = !tmdOpen">📢 <b>ประกาศกรมอุตุฯ</b> · <span x-text="tmd[0].title"></span><span x-show="tmd.length > 1" x-text="' (+' + (tmd.length - 1) + ')'"></span> <span x-text="tmdOpen ? '▲' : '▼'"></span></button>
+    <!-- 📢 ประกาศกรมอุตุฯ (เฟสเสริม · แถบเด่นบนสุด · รวมประกาศเขต กฟน.3 + จังหวัดทั่วประเทศที่อยู่ในประกาศ) -->
+    <template x-if="tmd.length || natTmd.length">
+      <div id="tmdbox">
+        <button class="tmd hot" @click="tmdOpen = !tmdOpen">📢 <b>ประกาศกรมอุตุฯ</b><span x-show="natTmd.length" x-text="' · ' + natTmd.length + ' จังหวัด'"></span> <span x-text="tmdOpen ? '▲' : '▼'"></span>
+          <span class="hint" x-text="tmdOpen ? 'แตะเพื่อย่อ' : (tmd.length ? tmd[0].title : 'แตะเพื่อดูรายจังหวัดและข้อความประกาศ')"></span></button>
         <div class="tmdlist" x-show="tmdOpen">
+          <template x-if="natTmd.length">
+            <div>
+              <div class="tmdh">จังหวัดที่อยู่ในประกาศ (แตะเพื่อดูบนแผนที่)</div>
+              <div class="tmdpv">
+                <template x-for="p in natTmd" :key="p.k">
+                  <button @click="pickP(p, true)" x-text="'📢 จ.' + p.p"></button>
+                </template>
+              </div>
+            </div>
+          </template>
+          <div class="tmdh" x-show="tmd.length">ข้อความประกาศที่เกี่ยวกับเขต กฟน.3</div>
           <template x-for="a in tmd" :key="a.k">
             <div class="tmdi">
               <div class="t" x-text="a.title"></div>
@@ -128,6 +148,7 @@
               <button class="lnk" x-show="a.link" @click="openExt(a.link)">อ่านฉบับเต็ม (กรมอุตุนิยมวิทยา)</button>
             </div>
           </template>
+          <button class="lnk" x-show="!tmd.length" @click="openExt('https://www.tmd.go.th/')">อ่านประกาศฉบับเต็มที่เว็บกรมอุตุนิยมวิทยา</button>
         </div>
       </div>
     </template>
@@ -147,7 +168,7 @@
       <div id="map"></div>
       <div class="ctrl">
         <template x-for="ly in toggles" :key="ly.id">
-          <button class="cbtn" :class="ly.on && 'on'" @click="toggle(ly.id)" x-text="(ly.on ? '☑ ' : '☐ ') + ly.label"></button>
+          <button class="cbtn" x-show="ly.id !== 'zone' || nat.length" :class="ly.on && 'on'" @click="toggle(ly.id)" x-text="(ly.on ? '☑ ' : '☐ ') + ly.label"></button>
         </template>
         <button class="cbtn" x-show="nat.length" @click="goView()" x-text="det ? '🇹🇭 ทั้งประเทศ' : '🔎 กฟน.3 รายหน่วย'"></button>
         <button class="cbtn" x-show="geoOk" @click="locate()" x-text="locBusy ? '📍 กำลังหา…' : '📍 ตำแหน่งฉัน'"></button>
@@ -159,6 +180,8 @@
         <div><span class="dot" style="background:var(--l0)"></span>ปกติ</div>
         <div><span class="dot" style="background:#DD6B20;width:7px;height:7px"></span>หมู่บ้านเสี่ยง</div>
         <div x-show="hasWx">☀️⛅🌧⛈ อากาศ 3 ชม.</div>
+        <div x-show="nat.length && !det && toggles.find(t => t.id === 'zone').on"><span class="zsw" style="background:#7B2D8E;opacity:.5"></span>สีพื้น = เขต กฟภ.</div>
+        <div x-show="tmd.length || natTmd.length">📢 มีประกาศกรมอุตุฯ (แตะดู)</div>
       </div>
     </div>
     <div class="near" x-show="!mapOk" style="background:#FFF5F5;color:#742A2A;border-color:#FED7D7">แผนที่โหลดไม่สำเร็จ · แสดงเป็นรายการแทน</div>
@@ -210,7 +233,9 @@
           <button class="x" @click="selP = null" aria-label="ปิด">✕</button>
         </div>
         <div class="cbd">
+          <div class="row"><span class="k">เขต กฟภ.</span><span class="v" x-text="zoneOf(selP) ? zoneOf(selP).n + ' (' + zoneOf(selP).hq + ')' : 'การไฟฟ้านครหลวง (นอกเขต กฟภ.)'"></span></div>
           <div class="row" x-show="selP.tmd"><span class="k">ประกาศกรมอุตุฯ</span><span class="v" x-text="'📢 ' + selP.tmd"></span></div>
+          <button class="lnk" x-show="selP.tmd" @click="showTmd()">📢 ดูประกาศกรมอุตุฯ ทั้งหมด</button>
           <div class="row" x-show="wxOf(selP).i"><span class="k">อากาศ 3 ชม. ข้างหน้า</span><span class="v" x-text="wxOf(selP).i + ' ' + wxOf(selP).t"></span></div>
           <div class="row"><span class="k">ช่วงเวลาคาด</span><span class="v" x-text="selP.win || '-'"></span></div>
           <div class="row"><span class="k">ลมกระโชกสูงสุด</span><span class="v" x-text="selP.gust + ' กม./ชม.'"></span></div>
@@ -257,6 +282,21 @@
 
     <template x-if="nat.length">
       <div>
+        <h3>🗺 12 เขต กฟภ. <span style="font-weight:400;font-size:12px;color:var(--mut)">· แตะเพื่อดูบนแผนที่</span></h3>
+        <div class="list">
+          <template x-for="r in zones" :key="r.z.id">
+            <button class="li" @click="pickZ(r.z)">
+              <span class="zsw" :style="'background:' + r.z.c"></span>
+              <span class="nm"><span x-text="r.z.n"></span> <span class="pv" x-text="r.z.hq + ' · ' + r.n + ' จ.'"></span></span>
+              <span class="mt" x-text="((r.c[3] ? '🔴' + r.c[3] + ' ' : '') + (r.c[2] ? '🟠' + r.c[2] + ' ' : '') + (r.c[1] ? '🟡' + r.c[1] + ' ' : '') + (r.t ? '📢' + r.t : '')) || 'ปกติ'"></span>
+            </button>
+          </template>
+        </div>
+      </div>
+    </template>
+
+    <template x-if="nat.length">
+      <div>
         <h3 x-text="'🇹🇭 ทั้งประเทศ · ' + natSummary"></h3>
         <div class="list">
           <template x-for="p in natWatch.slice(0, natShow)" :key="p.k">
@@ -292,6 +332,32 @@ const BASEMAP = { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' };   // เปลี่ยนผู้ให้บริการแผนที่ฐานที่นี่
 const CENTER = [15.4, 100.4], ZOOM = 8;   // กลาง กฟน.3 (ก่อนรู้ขอบเขตหน่วย)
 const STALE_MS = 3 * 3600e3;
+// 12 เขต กฟภ. (จังหวัดตามวิกิพีเดีย การไฟฟ้าส่วนภูมิภาค · ตรวจ 21/11/69) · กทม./นนทบุรี/สมุทรปราการ = การไฟฟ้านครหลวง (ไม่ระบายสี)
+// ชื่อ/สีเป็นค่าคงที่ในไฟล์ (ใช้ใน divIcon html ได้ · ไม่มีข้อมูลเซิร์ฟเวอร์)
+const PEA_ZONES = [
+  { id: 'น1', n: 'กฟน.1', hq: 'เชียงใหม่', c: '#3B6FB6', pv: 'เชียงใหม่ เชียงราย แม่ฮ่องสอน พะเยา ลำพูน ลำปาง' },
+  { id: 'น2', n: 'กฟน.2', hq: 'พิษณุโลก', c: '#2A9D8F', pv: 'พิษณุโลก แพร่ น่าน อุตรดิตถ์ สุโขทัย ตาก กำแพงเพชร พิจิตร' },
+  { id: 'น3', n: 'กฟน.3', hq: 'ลพบุรี', c: '#7B2D8E', pv: 'ลพบุรี นครสวรรค์ อุทัยธานี เพชรบูรณ์ ชัยนาท สิงห์บุรี' },
+  { id: 'ฉ1', n: 'กฟฉ.1', hq: 'อุดรธานี', c: '#8D6E63', pv: 'อุดรธานี หนองบัวลำภู เลย หนองคาย บึงกาฬ สกลนคร นครพนม ขอนแก่น' },
+  { id: 'ฉ2', n: 'กฟฉ.2', hq: 'อุบลราชธานี', c: '#5C6BC0', pv: 'อุบลราชธานี ศรีสะเกษ ยโสธร มุกดาหาร กาฬสินธุ์ มหาสารคาม ร้อยเอ็ด อำนาจเจริญ' },
+  { id: 'ฉ3', n: 'กฟฉ.3', hq: 'นครราชสีมา', c: '#00796B', pv: 'นครราชสีมา บุรีรัมย์ สุรินทร์ ชัยภูมิ' },
+  { id: 'ก1', n: 'กฟก.1', hq: 'พระนครศรีอยุธยา', c: '#C2185B', pv: 'พระนครศรีอยุธยา อ่างทอง ปทุมธานี นครนายก สระบุรี ปราจีนบุรี สระแก้ว' },
+  { id: 'ก2', n: 'กฟก.2', hq: 'ชลบุรี', c: '#0277BD', pv: 'ชลบุรี ระยอง ฉะเชิงเทรา จันทบุรี ตราด' },
+  { id: 'ก3', n: 'กฟก.3', hq: 'นครปฐม', c: '#9E9D24', pv: 'นครปฐม กาญจนบุรี สุพรรณบุรี สมุทรสาคร' },
+  { id: 'ต1', n: 'กฟต.1', hq: 'เพชรบุรี', c: '#00838F', pv: 'เพชรบุรี ราชบุรี สมุทรสงคราม ประจวบคีรีขันธ์ ชุมพร ระนอง' },
+  { id: 'ต2', n: 'กฟต.2', hq: 'นครศรีธรรมราช', c: '#558B2F', pv: 'นครศรีธรรมราช สุราษฎร์ธานี พังงา ภูเก็ต กระบี่ ตรัง' },
+  { id: 'ต3', n: 'กฟต.3', hq: 'ยะลา', c: '#4E342E', pv: 'ยะลา พัทลุง สตูล สงขลา ปัตตานี นราธิวาส' }];
+const ZONE_OF = {}; PEA_ZONES.forEach(z => z.pv.split(' ').forEach(p => { ZONE_OF[p] = z; }));
+// พื้นที่เขตโดยประมาณ = เปลือกนูนของวงรัศมี ~0.45° รอบตัวเมืองทุกจังหวัดในเขต (ไม่ใช่เส้นเขตจริง)
+function zoneHull(pts) {
+  const R = 0.45, ring = [];
+  pts.forEach(([la, ln]) => { for (let a = 0; a < 16; a++) { const t = a * Math.PI / 8; ring.push([la + R * Math.sin(t), ln + R * Math.cos(t) / Math.cos(la * Math.PI / 180)]); } });
+  const P = ring.sort((a, b) => a[1] - b[1] || a[0] - b[0]), cr = (o, a, b) => (a[1] - o[1]) * (b[0] - o[0]) - (a[0] - o[0]) * (b[1] - o[1]);
+  const lo = [], up = [];
+  P.forEach(p => { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); });
+  P.slice().reverse().forEach(p => { while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); });
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
 const DETAIL_Z = 8;   // ซูม ≥ นี้ = รายหน่วย กฟน.3 · ต่ำกว่า = ภาพรวมทั้งประเทศ (เมื่อเซิร์ฟเวอร์ส่ง nat)
 const LV = [
   { name: 'ปกติ', icon: '🟢', color: '#38A169' },
@@ -314,6 +380,7 @@ function wxIcon(u) {
   return { i: night ? '🌙' : '☀️', t: 'ท้องฟ้าแจ่มใส' };
 }
 const LAYERS = [
+  { id: 'zone', label: 'เขต กฟภ.', toggle: true, on: true, build: ctx => ctx.zoneLayer() },
   { id: 'vil', label: 'หมู่บ้านเสี่ยง', toggle: true, on: true, build: ctx => ctx.vilLayer() },
   { id: 'unit', label: 'หน่วย', toggle: false, on: true, build: ctx => ctx.unitLayer() },
   { id: 'tmd', label: 'ประกาศกรมอุตุฯ', toggle: false, on: true, build: ctx => ctx.tmdLayer() },
@@ -370,6 +437,10 @@ document.addEventListener('alpine:init', () => {
     units: [], villages: [], tmd: [], tmdOpen: false, nat: [], selP: null, natShow: 10, det: true, morn: null, mornOpen: false, _tok: '', upd: '', at: 0, note: '', src: '', cfg: {},
     sel: null, selV: null, selVil: [], vilShow: 20, listShow: 15, near: '', toastMsg: '', toggles: LAYERS.filter(l => l.toggle).map(l => ({ id: l.id, label: l.label, on: l.on })),
 
+    get zones() { return PEA_ZONES.map(z => { const ps = this.nat.filter(p => ZONE_OF[p.p] === z), c = [0, 0, 0, 0]; let t = 0;
+      ps.forEach(p => { c[p.lv]++; if (p.tmd) t++; }); return { z, n: ps.length, c, t, mx: ps.reduce((m, p) => Math.max(m, p.lv), 0) }; }).filter(r => r.n); },
+    zoneOf(p) { return p ? ZONE_OF[p.p] || null : null; },
+    get natTmd() { return this.nat.filter(p => p.tmd).sort((a, b) => a.p.localeCompare(b.p, 'th')); },
     get natWatch() { return this.nat.filter(p => p.lv || p.tmd).sort((a, b) => b.lv - a.lv || (b.tmd ? 1 : 0) - (a.tmd ? 1 : 0) || b.gust - a.gust); },
     get natSummary() { const c = [0, 0, 0, 0]; let t = 0; this.nat.forEach(p => { c[p.lv]++; if (p.tmd) t++; }); return '🔴 ' + c[3] + ' · 🟠 ' + c[2] + ' · 🟡 ' + c[1] + ' · 📢 ' + t + ' จังหวัด'; },
     get stale() { return this.at && Date.now() - this.at > STALE_MS; },
@@ -469,11 +540,22 @@ document.addEventListener('alpine:init', () => {
             return g; },
           natLayer(n3) { const g = L.layerGroup(), ic = {};   // จุดจังหวัด: วงสีระดับ + อีโมจิจากตาราง wxIcon (ไม่มีข้อความเซิร์ฟเวอร์ใน html)
             self.nat.filter(p => p.n3 === n3).forEach(p => {
-              const c = L.circleMarker([p.lat, p.lng], { radius: 6 + p.lv * 2, color: p.tmd ? '#9C4221' : '#fff', weight: p.tmd ? 3 : 2, fillColor: self.color(p.lv), fillOpacity: .85 });
+              const c = L.circleMarker([p.lat, p.lng], { radius: 6 + p.lv * 2, color: '#fff', weight: 2, fillColor: self.color(p.lv), fillOpacity: .85 });
               c.on('click', () => self.pickP(p, false)); c.addTo(g);
+              if (p.tmd) { ic.tmd = ic.tmd || L.divIcon({ className: 'tmdpin', html: '📢', iconSize: [18, 18], iconAnchor: [-3, 16] });   // html คงที่
+                const t = L.marker([p.lat, p.lng], { icon: ic.tmd, keyboard: false }); t.on('click', () => self.pickP(p, false)); t.addTo(g); }
               const e = self.wxOf(p).i; if (!e) return;
               ic[e] = ic[e] || L.divIcon({ className: 'natpin', html: e, iconSize: [18, 18], iconAnchor: [9, 24] });
               const m = L.marker([p.lat, p.lng], { icon: ic[e], keyboard: false }); m.on('click', () => self.pickP(p, false)); m.addTo(g); });
+            return g; },
+          zoneLayer() { const g = L.layerGroup(); if (!self.nat.length) return g;   // ใต้จุดจังหวัด (pane แยก z 350) · ชื่อเขตจากตาราง PEA_ZONES
+            if (!map.getPane('zones')) { map.createPane('zones').style.zIndex = 350; map.createPane('zlbl').style.zIndex = 450; map.getPane('zlbl').style.pointerEvents = 'none'; }
+            const rd = L.svg({ pane: 'zones' });
+            PEA_ZONES.forEach(z => { const ps = self.nat.filter(p => ZONE_OF[p.p] === z); if (!ps.length) return;
+              const poly = L.polygon(zoneHull(ps.map(p => [p.lat, p.lng])), { pane: 'zones', renderer: rd, color: z.c, weight: 1.5, opacity: .7, fillColor: z.c, fillOpacity: .13, interactive: false });   // แตะผ่านไปจุดจังหวัด/ลากแผนที่ได้ · เลือกเขตจากรายการ "12 เขต กฟภ."
+              poly.addTo(g);
+              const la = ps.reduce((a, p) => a + p.lat, 0) / ps.length, ln = ps.reduce((a, p) => a + p.lng, 0) / ps.length;
+              L.marker([la, ln], { pane: 'zlbl', interactive: false, keyboard: false, icon: L.divIcon({ className: 'zlbl', html: '<span style="background:' + z.c + '">' + z.n + '</span>', iconSize: [56, 18], iconAnchor: [28, -6] }) }).addTo(g); });
             return g; },
           meLayer() { return L.layerGroup(); }
         };
@@ -498,8 +580,13 @@ document.addEventListener('alpine:init', () => {
       const on = (id, v) => { const g = groups[id]; if (!g) return; if (v) { if (!map.hasLayer(g)) g.addTo(map); } else if (map.hasLayer(g)) map.removeLayer(g); };
       const tg = id => { const t = this.toggles.find(x => x.id === id); return !t || t.on; };
       on('unit', det); on('tmd', det); on('vil', det && tg('vil')); on('wxi', det && tg('wxi'));
-      on('natOut', true); on('natN3', !det);
+      on('natOut', true); on('natN3', !det); on('zone', !det && tg('zone'));
     },
+    pickZ(z) { const ps = this.nat.filter(p => ZONE_OF[p.p] === z); if (!map || !ps.length) return;
+      this.sel = null; this.selV = null; this.selP = null;
+      map.fitBounds(L.latLngBounds(ps.map(p => [p.lat, p.lng])).pad(0.25), { maxZoom: DETAIL_Z - 1 });
+      document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'start' }); },
+    showTmd() { this.tmdOpen = true; this.$nextTick(() => { const e = document.getElementById('tmdbox'); if (e) e.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); },
     goView() {
       if (!map) return;
       if (this.det && this.nat.length) map.fitBounds(L.latLngBounds(this.nat.map(p => [p.lat, p.lng])).pad(0.05));
